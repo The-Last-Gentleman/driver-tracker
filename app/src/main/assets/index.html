@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Driver Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root{
+    --bg:#0f1115;
+    --card:#181b22;
+    --card2:#1f232c;
+    --accent:#3ddc84;
+    --accent2:#ffb454;
+    --danger:#ff5c5c;
+    --text:#e9edf1;
+    --muted:#8a93a3;
+    --border:#2a2f3a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding-bottom:80px;
+  }
+  header{
+    padding:20px 16px 12px;
+    text-align:center;
+  }
+  header h1{
+    margin:0;
+    font-size:20px;
+    font-weight:700;
+  }
+  header p{
+    margin:4px 0 0;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .container{
+    max-width:480px;
+    margin:0 auto;
+    padding:0 16px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .today-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+  }
+  .stat{
+    background:var(--card2);
+    border-radius:12px;
+    padding:12px 8px;
+    text-align:center;
+  }
+  .stat .label{
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .stat .value{
+    font-size:18px;
+    font-weight:700;
+    margin-top:4px;
+  }
+  .value.income{color:var(--accent);}
+  .value.expense{color:var(--danger);}
+  .value.profit{color:var(--accent2);}
+  .actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+  }
+  .btn{
+    padding:14px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    color:#0f1115;
+  }
+  .btn-income{background:var(--accent);}
+  .btn-expense{background:var(--accent2);}
+  .btn-full{grid-column:1/3;}
+  .btn-secondary{
+    background:var(--card2);
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  .session-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--card2);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:14px;
+  }
+  .session-bar .status{
+    font-size:14px;
+    font-weight:600;
+  }
+  .session-bar .dot{
+    display:inline-block;
+    width:8px;height:8px;
+    border-radius:50%;
+    margin-right:6px;
+  }
+  .dot.on{background:var(--accent);}
+  .dot.off{background:var(--muted);}
+  .session-btn{
+    padding:8px 14px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+  }
+  .session-btn.start{background:var(--accent);color:#0f1115;}
+  .session-btn.end{background:var(--danger);color:#fff;}
+  nav{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:var(--card);
+    border-top:1px solid var(--border);
+    display:flex;
+    max-width:480px;
+    margin:0 auto;
+  }
+  nav button{
+    flex:1;
+    background:none;
+    color:var(--muted);
+    padding:12px 4px 10px;
+    font-size:12px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+  }
+  nav button.active{color:var(--accent);}
+  nav button .icon{font-size:18px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  h2{font-size:16px;margin:4px 0 12px;}
+  .list-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .list-item:last-child{border-bottom:none;}
+  .li-main{font-size:14px;font-weight:600;}
+  .li-sub{font-size:12px;color:var(--muted);}
+  .li-amt{font-weight:700;font-size:14px;}
+  .li-amt.income{color:var(--accent);}
+  .li-amt.expense{color:var(--danger);}
+  .empty{color:var(--muted);text-align:center;padding:20px 0;font-size:13px;}
+  .modal-bg{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.6);
+    align-items:flex-end;
+    justify-content:center;
+    z-index:50;
+  }
+  .modal-bg.active{display:flex;}
+  .modal{
+    background:var(--card);
+    width:100%;
+    max-width:480px;
+    border-radius:20px 20px 0 0;
+    padding:20px 16px 28px;
+  }
+  .modal h3{margin:0 0 14px;font-size:16px;}
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--card2);
+    color:var(--text);
+    font-size:15px;
+  }
+  .toggle-row{
+    display:flex;
+    gap:8px;
+  }
+  .toggle-opt{
+    flex:1;
+    padding:12px;
+    text-align:center;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--card2);
+    color:var(--muted);
+    font-weight:600;
+    font-size:14px;
+  }
+  .toggle-opt.selected{
+    border-color:var(--accent);
+    color:var(--accent);
+    background:rgba(61,220,132,.08);
+  }
+  .toggle-opt.selected.exp{
+    border-color:var(--accent2);
+    color:var(--accent2);
+    background:rgba(255,180,84,.08);
+  }
+  .modal .save-btn{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    font-weight:700;
+    font-size:15px;
+    background:var(--accent);
+    color:#0f1115;
+    margin-top:6px;
+  }
+  .cat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .period-tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .period-tab{
+    flex:1;
+    padding:10px;
+    text-align:center;
+    border-radius:10px;
+    background:var(--card2);
+    color:var(--muted);
+    font-weight:600;
+    font-size:13px;
+    border:1px solid var(--border);
+  }
+  .period-tab.active{
+    background:var(--accent);
+    color:#0f1115;
+    border-color:var(--accent);
+  }
+  .arrowbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .arrowbar button{
+    background:var(--card2);
+    color:var(--text);
+    border:1px solid var(--border);
+    width:32px;height:32px;
+    border-radius:8px;
+    font-size:16px;
+  }
+  .arrowbar .range-label{font-size:13px;color:var(--muted);}
+  .metric-row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
+  }
+  .metric-row:last-child{border-bottom:none;}
+  .metric-row .m-label{color:var(--muted);}
+  .metric-row .m-val{font-weight:700;}
+  .top-tabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:14px;
+    overflow-x:auto;
+  }
+  .toast{
+    position:fixed;
+    bottom:90px;left:50%;
+    transform:translateX(-50%);
+    background:var(--accent);
+    color:#0f1115;
+    padding:10px 18px;
+    border-radius:20px;
+    font-weight:600;
+    font-size:13px;
+    opacity:0;
+    transition:opacity .3s;
+    pointer-events:none;
+    z-index:100;
+  }
+  .toast.show{opacity:1;}
+  .delete-x{
+    color:var(--muted);
+    font-size:16px;
+    padding:4px 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🚗 Driver Tracker</h1>
+  <p>Track income, fuel, expenses & profit</p>
+</header>
+
+<div class="container">
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="screen-home">
+
+    <div class="session-bar">
+      <div class="status"><span class="dot off" id="sessionDot"></span><span id="sessionText">Not working</span></div>
+      <button class="session-btn start" id="sessionBtn" onclick="toggleSession()">Start Shift</button>
+    </div>
+
+    <div id="odoBar" style="display:none;text-align:center;color:var(--muted);font-size:12px;margin-bottom:14px;">
+      Last odometer reading: <span id="lastOdo" style="color:var(--text);font-weight:600;"></span> km
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Today</div>
+      <div class="today-grid">
+        <div class="stat">
+          <div class="label">Income</div>
+          <div class="value income" id="todayIncome">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Expenses</div>
+          <div class="value expense" id="todayExpense">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Profit</div>
+          <div class="value profit" id="todayProfit">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-income" onclick="openTripModal()">+ Add Trip</button>
+      <button class="btn btn-expense" onclick="openExpenseModal()">+ Add Expense</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h2 style="margin:0;">Today's Activity</h2>
+        <span style="font-size:12px;color:var(--muted);" id="todayCount">0 entries</span>
+      </div>
+      <div id="todayList"><div class="empty">Nothing recorded yet today</div></div>
+    </div>
+
+  </div>
+
+  <!-- REPORTS SCREEN -->
+  <div class="screen" id="screen-reports">
+    <h2>Reports</h2>
+    <div class="period-tabs">
+      <div class="period-tab active" data-period="day" onclick="setPeriod('day')">Daily</div>
+      <div class="period-tab" data-period="week" onclick="setPeriod('week')">Weekly</div>
+      <div class="period-tab" data-period="month" onclick="setPeriod('month')">Monthly</div>
+    </div>
+
+    <div class="arrowbar">
+      <button onclick="shiftPeriod(-1)">‹</button>
+      <div class="range-label" id="rangeLabel">Today</div>
+      <button onclick="shiftPeriod(1)">›</button>
+    </div>
+
+    <div class="card">
+      <div class="today-grid">
+        <div class="stat">
+          <div class="label">Income</div>
+          <div class="value income" id="repIncome">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Expenses</div>
+          <div class="value expense" id="repExpense">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Profit</div>
+          <div class="value profit" id="repProfit">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Performance</h2>
+      <div class="metric-row"><span class="m-label">Trips</span><span class="m-val" id="mTrips">0</span></div>
+      <div class="metric-row"><span class="m-label">Avg fare / trip</span><span class="m-val" id="mAvgFare">$0</span></div>
+      <div class="metric-row"><span class="m-label">Hours worked</span><span class="m-val" id="mHours">0h</span></div>
+      <div class="metric-row"><span class="m-label">Earnings / hour</span><span class="m-val" id="mPerHour">$0</span></div>
+      <div class="metric-row"><span class="m-label">Fuel cost % of income</span><span class="m-val" id="mFuelPct">0%</span></div>
+      <div class="metric-row"><span class="m-label">Cash income</span><span class="m-val" id="mCash">$0</span></div>
+      <div class="metric-row"><span class="m-label">Electronic income</span><span class="m-val" id="mElectronic">$0</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Expense Breakdown</h2>
+      <div id="expenseBreakdown"><div class="empty">No expenses in this period</div></div>
+    </div>
+
+    <div class="card">
+      <h2>⛽ Fuel Efficiency</h2>
+      <div id="fuelEfficiency"><div class="empty">Add at least 2 fuel entries with odometer readings to see efficiency</div></div>
+    </div>
+  </div>
+
+  <!-- HISTORY SCREEN -->
+  <div class="screen" id="screen-history">
+    <h2>History</h2>
+    <div class="top-tabs">
+      <div class="period-tab active" data-hf="all" onclick="setHistFilter('all')">All</div>
+      <div class="period-tab" data-hf="trip" onclick="setHistFilter('trip')">Trips</div>
+      <div class="period-tab" data-hf="expense" onclick="setHistFilter('expense')">Expenses</div>
+    </div>
+    <div class="card">
+      <div id="historyList"><div class="empty">No records yet</div></div>
+    </div>
+  </div>
+
+</div>
+
+<nav>
+  <button class="active" data-screen="home" onclick="switchScreen('home')">
+    <span class="icon">🏠</span>Home
+  </button>
+  <button data-screen="reports" onclick="switchScreen('reports')">
+    <span class="icon">📊</span>Reports
+  </button>
+  <button data-screen="history" onclick="switchScreen('history')">
+    <span class="icon">🧾</span>History
+  </button>
+</nav>
+
+<!-- TRIP MODAL -->
+<div class="modal-bg" id="tripModal">
+  <div class="modal">
+    <h3>Add Trip</h3>
+    <div class="field">
+      <label>Fare Amount</label>
+      <input type="number" inputmode="decimal" id="tripFare" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label>Payment Method</label>
+      <div class="toggle-row">
+        <div class="toggle-opt selected" id="payCash" onclick="selectPayment('cash')">💵 Cash</div>
+        <div class="toggle-opt" id="payElectronic" onclick="selectPayment('electronic')">💳 Electronic</div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveTrip()">Save Trip</button>
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div class="modal-bg" id="expenseModal">
+  <div class="modal">
+    <h3>Add Expense</h3>
+    <div class="field">
+      <label>Category</label>
+      <select id="expCategory" onchange="toggleFuelFields()">
+        <option value="Fuel">⛽ Fuel</option>
+        <option value="Repairs">🔧 Repairs</option>
+        <option value="Servicing">🛠️ Servicing</option>
+        <option value="Tyres">🛞 Tyres</option>
+        <option value="Washing">🧽 Washing</option>
+        <option value="Parking">🅿️ Parking</option>
+        <option value="Tolls">🛣️ Tolls</option>
+        <option value="Licence/Permit">📄 Licence/Permit</option>
+        <option value="Insurance">🛡️ Insurance</option>
+        <option value="Other">📦 Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Amount</label>
+      <input type="number" inputmode="decimal" id="expAmount" placeholder="0.00">
+    </div>
+    <div id="fuelFields">
+      <div class="field">
+        <label>Odometer reading (km)</label>
+        <input type="number" inputmode="decimal" id="expOdometer" placeholder="e.g. 84210">
+      </div>
+      <div class="field">
+        <label>Litres (optional)</label>
+        <input type="number" inputmode="decimal" id="expLitres" placeholder="e.g. 25.5">
+      </div>
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="expNote" placeholder="e.g. description">
+    </div>
+    <button class="save-btn" style="background:var(--accent2);" onclick="saveExpense()">Save Expense</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- DATA LAYER (localStorage) ---------- */
+const STORAGE_KEY = 'driverTrackerData_v1';
+
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { records: [], session: null };
+}
+function saveData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+let data = loadData();
+
+/* ---------- HELPERS ---------- */
+function fmt(n){
+  n = Number(n)||0;
+  return '$' + n.toFixed(2).replace(/\.00$/,'');
+}
+function todayKey(d){
+  const dt = d ? new Date(d) : new Date();
+  return dt.toISOString().slice(0,10);
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* ---------- NAVIGATION ---------- */
+function switchScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  if(name==='reports') renderReports();
+  if(name==='history') renderHistory();
+}
+
+/* ---------- SESSION (shift) ---------- */
+function toggleSession(){
+  if(data.session){
+    // end session
+    const start = data.session.start;
+    const end = Date.now();
+    data.records.push({
+      type:'session',
+      start, end,
+      date: todayKey(start)
+    });
+    data.session = null;
+    showToast('Shift ended');
+  } else {
+    data.session = { start: Date.now() };
+    showToast('Shift started');
+  }
+  saveData();
+  renderSession();
+  renderHome();
+}
+function renderSession(){
+  const dot = document.getElementById('sessionDot');
+  const txt = document.getElementById('sessionText');
+  const btn = document.getElementById('sessionBtn');
+  if(data.session){
+    dot.className='dot on';
+    txt.textContent='Working';
+    btn.textContent='End Shift';
+    btn.className='session-btn end';
+  } else {
+    dot.className='dot off';
+    txt.textContent='Not working';
+    btn.textContent='Start Shift';
+    btn.className='session-btn start';
+  }
+}
+
+/* ---------- TRIP MODAL ---------- */
+let selectedPayment = 'cash';
+function openTripModal(){
+  document.getElementById('tripFare').value='';
+  selectPayment('cash');
+  document.getElementById('tripModal').classList.add('active');
+}
+function closeTripModal(){
+  document.getElementById('tripModal').classList.remove('active');
+}
+function selectPayment(method){
+  selectedPayment = method;
+  document.getElementById('payCash').classList.toggle('selected', method==='cash');
+  document.getElementById('payElectronic').classList.toggle('selected', method==='electronic');
+}
+function saveTrip(){
+  const fare = parseFloat(document.getElementById('tripFare').value);
+  if(!fare || fare<=0){ showToast('Enter a valid fare'); return; }
+  data.records.push({
+    type:'trip',
+    amount: fare,
+    payment: selectedPayment,
+    date: todayKey(),
+    ts: Date.now()
+  });
+  saveData();
+  closeTripModal();
+  showToast('Trip saved');
+  renderHome();
+}
+
+/* ---------- EXPENSE MODAL ---------- */
+function openExpenseModal(){
+  document.getElementById('expAmount').value='';
+  document.getElementById('expNote').value='';
+  document.getElementById('expOdometer').value='';
+  document.getElementById('expLitres').value='';
+  document.getElementById('expCategory').value='Fuel';
+  toggleFuelFields();
+  document.getElementById('expenseModal').classList.add('active');
+}
+function toggleFuelFields(){
+  const isFuel = document.getElementById('expCategory').value==='Fuel';
+  document.getElementById('fuelFields').style.display = isFuel ? 'block' : 'none';
+}
+function closeExpenseModal(){
+  document.getElementById('expenseModal').classList.remove('active');
+}
+function saveExpense(){
+  const amt = parseFloat(document.getElementById('expAmount').value);
+  const cat = document.getElementById('expCategory').value;
+  const note = document.getElementById('expNote').value;
+  if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+  const record = {
+    type:'expense',
+    category: cat,
+    amount: amt,
+    note: note,
+    date: todayKey(),
+    ts: Date.now()
+  };
+  if(cat==='Fuel'){
+    const odo = parseFloat(document.getElementById('expOdometer').value);
+    const litres = parseFloat(document.getElementById('expLitres').value);
+    if(!isNaN(odo)) record.odometer = odo;
+    if(!isNaN(litres)) record.litres = litres;
+  }
+  data.records.push(record);
+  saveData();
+  closeExpenseModal();
+  showToast('Expense saved');
+  renderHome();
+}
+
+// close modals when tapping background
+document.querySelectorAll('.modal-bg').forEach(bg=>{
+  bg.addEventListener('click', (e)=>{ if(e.target===bg) bg.classList.remove('active'); });
+});
+
+/* ---------- DELETE RECORD ---------- */
+function deleteRecord(ts){
+  data.records = data.records.filter(r=>r.ts!==ts);
+  saveData();
+  renderHome(); renderHistory(); renderReports();
+}
+
+/* ---------- HOME RENDER ---------- */
+function renderHome(){
+  const t = todayKey();
+  const todays = data.records.filter(r=>r.date===t && r.type!=='session');
+  let income=0, expense=0;
+  todays.forEach(r=>{
+    if(r.type==='trip') income+=r.amount;
+    if(r.type==='expense') expense+=r.amount;
+  });
+  document.getElementById('todayIncome').textContent = fmt(income);
+  document.getElementById('todayExpense').textContent = fmt(expense);
+  document.getElementById('todayProfit').textContent = fmt(income-expense);
+  document.getElementById('todayCount').textContent = todays.length + ' entries';
+
+  const list = document.getElementById('todayList');
+  if(todays.length===0){
+    list.innerHTML = '<div class="empty">Nothing recorded yet today</div>';
+  } else {
+    list.innerHTML = todays.slice().reverse().map(r=>{
+      const time = new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      if(r.type==='trip'){
+        return `<div class="list-item">
+          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${time}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt income">+${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else {
+        const extra = r.category==='Fuel' ? [r.odometer?('Odo '+r.odometer+'km'):null, r.litres?(r.litres+'L'):null].filter(Boolean).join(' · ') : '';
+        const sub = [time, extra].filter(Boolean).join(' · ');
+        return `<div class="list-item">
+          <div><div class="li-main">${r.category}${r.note?' · '+r.note:''}</div><div class="li-sub">${sub}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt expense">-${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      }
+    }).join('');
+  }
+  renderSession();
+
+  const fuelWithOdo = data.records.filter(r=>r.type==='expense' && r.category==='Fuel' && r.odometer!=null).sort((a,b)=>b.ts-a.ts);
+  const odoBar = document.getElementById('odoBar');
+  if(fuelWithOdo.length){
+    odoBar.style.display='block';
+    document.getElementById('lastOdo').textContent = fuelWithOdo[0].odometer;
+  } else {
+    odoBar.style.display='none';
+  }
+}
+
+/* ---------- REPORTS ---------- */
+let currentPeriod = 'day';
+let periodOffset = 0; // 0 = current period, -1 = previous, etc.
+
+function setPeriod(p){
+  currentPeriod = p;
+  periodOffset = 0;
+  document.querySelectorAll('.period-tab[data-period]').forEach(t=>t.classList.toggle('active', t.dataset.period===p));
+  renderReports();
+}
+function shiftPeriod(dir){
+  periodOffset += dir;
+  renderReports();
+}
+
+function getPeriodRange(){
+  const now = new Date();
+  if(currentPeriod==='day'){
+    const d = new Date(now);
+    d.setDate(d.getDate()+periodOffset);
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const end = new Date(start); end.setDate(end.getDate()+1);
+    return {start, end, label: start.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'})};
+  }
+  if(currentPeriod==='week'){
+    const d = new Date(now);
+    d.setDate(d.getDate() + periodOffset*7);
+    const day = d.getDay();
+    const diffToMonday = (day===0? -6 : 1-day);
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()+diffToMonday);
+    const end = new Date(start); end.setDate(end.getDate()+7);
+    const endDisplay = new Date(end); endDisplay.setDate(endDisplay.getDate()-1);
+    return {start, end, label: start.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' – ' + endDisplay.toLocaleDateString(undefined,{month:'short',day:'numeric'})};
+  }
+  // month
+  const d = new Date(now.getFullYear(), now.getMonth()+periodOffset, 1);
+  const start = d;
+  const end = new Date(d.getFullYear(), d.getMonth()+1, 1);
+  return {start, end, label: start.toLocaleDateString(undefined,{month:'long', year:'numeric'})};
+}
+
+function renderReports(){
+  const {start,end,label} = getPeriodRange();
+  document.getElementById('rangeLabel').textContent = label;
+
+  const inRange = data.records.filter(r=>{
+    const dt = new Date(r.ts || r.start);
+    return dt>=start && dt<end;
+  });
+
+  const trips = inRange.filter(r=>r.type==='trip');
+  const expenses = inRange.filter(r=>r.type==='expense');
+  const sessions = inRange.filter(r=>r.type==='session');
+
+  const income = trips.reduce((s,r)=>s+r.amount,0);
+  const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
+  const profit = income - expenseTotal;
+  const cash = trips.filter(r=>r.payment==='cash').reduce((s,r)=>s+r.amount,0);
+  const electronic = trips.filter(r=>r.payment==='electronic').reduce((s,r)=>s+r.amount,0);
+  const hoursMs = sessions.reduce((s,r)=>s+(r.end-r.start),0);
+  const hours = hoursMs/3600000;
+  const fuelTotal = expenses.filter(r=>r.category==='Fuel').reduce((s,r)=>s+r.amount,0);
+
+  document.getElementById('repIncome').textContent = fmt(income);
+  document.getElementById('repExpense').textContent = fmt(expenseTotal);
+  document.getElementById('repProfit').textContent = fmt(profit);
+
+  document.getElementById('mTrips').textContent = trips.length;
+  document.getElementById('mAvgFare').textContent = trips.length? fmt(income/trips.length) : '$0';
+  document.getElementById('mHours').textContent = hours.toFixed(1)+'h';
+  document.getElementById('mPerHour').textContent = hours>0 ? fmt(profit/hours) : '$0';
+  document.getElementById('mFuelPct').textContent = income>0 ? ((fuelTotal/income)*100).toFixed(1)+'%' : '0%';
+  document.getElementById('mCash').textContent = fmt(cash);
+  document.getElementById('mElectronic').textContent = fmt(electronic);
+
+  renderFuelEfficiency(start, end);
+
+  // expense breakdown by category
+  const byCat = {};
+  expenses.forEach(r=>{ byCat[r.category] = (byCat[r.category]||0) + r.amount; });
+  const catKeys = Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]);
+  const bd = document.getElementById('expenseBreakdown');
+  if(catKeys.length===0){
+    bd.innerHTML = '<div class="empty">No expenses in this period</div>';
+  } else {
+    bd.innerHTML = catKeys.map(c=>`
+      <div class="metric-row"><span class="m-label">${c}</span><span class="m-val">${fmt(byCat[c])}</span></div>
+    `).join('');
+  }
+}
+
+/* ---------- FUEL EFFICIENCY ---------- */
+function renderFuelEfficiency(periodStart, periodEnd){
+  const el = document.getElementById('fuelEfficiency');
+  // Use ALL fuel records with an odometer reading, sorted chronologically by odometer/time
+  const fuelRecs = data.records
+    .filter(r=>r.type==='expense' && r.category==='Fuel' && r.odometer!=null)
+    .sort((a,b)=> a.odometer - b.odometer);
+
+  if(fuelRecs.length < 2){
+    el.innerHTML = '<div class="empty">Add at least 2 fuel entries with odometer readings to see efficiency</div>';
+    return;
+  }
+
+  // Build fill-to-fill segments (distance since last fill, litres used to cover it)
+  const segments = [];
+  for(let i=1;i<fuelRecs.length;i++){
+    const prev = fuelRecs[i-1];
+    const curr = fuelRecs[i];
+    const distance = curr.odometer - prev.odometer;
+    if(distance<=0 || !curr.litres) continue;
+    segments.push({
+      distance,
+      litres: curr.litres,
+      cost: curr.amount,
+      ts: curr.ts
+    });
+  }
+
+  if(segments.length===0){
+    el.innerHTML = '<div class="empty">Add litres at each fuel-up (with odometer) to calculate consumption</div>';
+    return;
+  }
+
+  // Segments that fall within the selected period
+  const periodSegments = segments.filter(s => s.ts>=periodStart.getTime() && s.ts<periodEnd.getTime());
+  const relevant = periodSegments.length ? periodSegments : segments; // fall back to all-time if none in period
+
+  const totalDistance = relevant.reduce((s,x)=>s+x.distance,0);
+  const totalLitres = relevant.reduce((s,x)=>s+x.litres,0);
+  const totalFuelCost = relevant.reduce((s,x)=>s+x.cost,0);
+
+  const kmPerL = totalLitres>0 ? totalDistance/totalLitres : 0;
+  const lPer100 = totalDistance>0 ? (totalLitres/totalDistance)*100 : 0;
+  const costPerKm = totalDistance>0 ? totalFuelCost/totalDistance : 0;
+
+  const note = periodSegments.length ? '' : '<div class="li-sub" style="margin-bottom:6px;">No full fill-ups in this exact period — showing all-time average</div>';
+
+  el.innerHTML = `
+    ${note}
+    <div class="metric-row"><span class="m-label">Distance covered</span><span class="m-val">${totalDistance.toFixed(0)} km</span></div>
+    <div class="metric-row"><span class="m-label">Fuel used</span><span class="m-val">${totalLitres.toFixed(1)} L</span></div>
+    <div class="metric-row"><span class="m-label">Consumption</span><span class="m-val">${kmPerL.toFixed(1)} km/L</span></div>
+    <div class="metric-row"><span class="m-label">Consumption</span><span class="m-val">${lPer100.toFixed(1)} L/100km</span></div>
+    <div class="metric-row"><span class="m-label">Fuel cost / km</span><span class="m-val">${fmt(costPerKm)}</span></div>
+  `;
+}
+
+/* ---------- HISTORY ---------- */
+let histFilter = 'all';
+function setHistFilter(f){
+  histFilter = f;
+  document.querySelectorAll('.period-tab[data-hf]').forEach(t=>t.classList.toggle('active', t.dataset.hf===f));
+  renderHistory();
+}
+function renderHistory(){
+  let records = data.records.filter(r=>r.type!=='session');
+  if(histFilter!=='all') records = records.filter(r=>r.type===histFilter);
+  records = records.slice().sort((a,b)=>b.ts-a.ts);
+
+  const list = document.getElementById('historyList');
+  if(records.length===0){
+    list.innerHTML = '<div class="empty">No records yet</div>';
+    return;
+  }
+  list.innerHTML = records.map(r=>{
+    const dt = new Date(r.ts);
+    const dateStr = dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    if(r.type==='trip'){
+      return `<div class="list-item">
+        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${dateStr}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="li-amt income">+${fmt(r.amount)}</div>
+          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+        </div>
+      </div>`;
+    } else {
+      const extra = r.category==='Fuel' ? [r.odometer?('Odo '+r.odometer+'km'):null, r.litres?(r.litres+'L'):null].filter(Boolean).join(' · ') : '';
+      const sub = [dateStr, extra].filter(Boolean).join(' · ');
+      return `<div class="list-item">
+        <div><div class="li-main">${r.category}${r.note?' · '+r.note:''}</div><div class="li-sub">${sub}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="li-amt expense">-${fmt(r.amount)}</div>
+          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+        </div>
+      </div>`;
+    }
+  }).join('');
+}
+
+/* ---------- INIT ---------- */
+renderHome();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>

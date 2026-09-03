@@ -1,0 +1,19 @@
+{
+  "name": "Driver Tracker",
+  "short_name": "Driver Tracker",
+  "description": "Track income, fuel, expenses, and profit as an inDrive driver",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
