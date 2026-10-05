@@ -360,6 +360,28 @@
       </div>
     </div>
 
+    <div class="card" style="border-color:var(--accent2);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+        <div style="font-size:13px;color:var(--muted);">Since last cash-in</div>
+        <div style="font-size:11px;color:var(--muted);" id="sinceCashInDate">—</div>
+      </div>
+      <div class="today-grid">
+        <div class="stat">
+          <div class="label">Income</div>
+          <div class="value income" id="cashinIncome">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Expenses</div>
+          <div class="value expense" id="cashinExpense">$0</div>
+        </div>
+        <div class="stat">
+          <div class="label">To Cash Out</div>
+          <div class="value profit" id="cashinProfit">$0</div>
+        </div>
+      </div>
+      <button class="btn btn-full" style="background:var(--accent2);margin-top:12px;width:100%;" onclick="openCashInModal()">💰 Cash Out</button>
+    </div>
+
     <div class="actions">
       <button class="btn btn-income" onclick="openTripModal()">+ Add Trip</button>
       <button class="btn btn-expense" onclick="openExpenseModal()">+ Add Expense</button>
@@ -414,6 +436,7 @@
       <div class="metric-row"><span class="m-label">Hours worked</span><span class="m-val" id="mHours">0h</span></div>
       <div class="metric-row"><span class="m-label">Earnings / hour</span><span class="m-val" id="mPerHour">$0</span></div>
       <div class="metric-row"><span class="m-label">Fuel cost % of income</span><span class="m-val" id="mFuelPct">0%</span></div>
+      <div class="metric-row"><span class="m-label">Cash withdrawn</span><span class="m-val" id="mCashOut">$0</span></div>
       <div class="metric-row"><span class="m-label">Cash income</span><span class="m-val" id="mCash">$0</span></div>
       <div class="metric-row"><span class="m-label">Electronic income</span><span class="m-val" id="mElectronic">$0</span></div>
     </div>
@@ -436,12 +459,19 @@
       <div class="period-tab active" data-hf="all" onclick="setHistFilter('all')">All</div>
       <div class="period-tab" data-hf="trip" onclick="setHistFilter('trip')">Trips</div>
       <div class="period-tab" data-hf="expense" onclick="setHistFilter('expense')">Expenses</div>
+      <div class="period-tab" data-hf="cashin" onclick="setHistFilter('cashin')">Cash Outs</div>
     </div>
     <div class="card">
       <div id="historyList"><div class="empty">No records yet</div></div>
     </div>
   </div>
 
+</div>
+
+<div style="text-align:center;padding:10px 0 84px;">
+  <a href="https://thelastgentleman.vercel.app/" target="_blank" rel="noopener" style="color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.02em;">
+    Built by The Last Gent
+  </a>
 </div>
 
 <nav>
@@ -470,6 +500,10 @@
         <div class="toggle-opt selected" id="payCash" onclick="selectPayment('cash')">💵 Cash</div>
         <div class="toggle-opt" id="payElectronic" onclick="selectPayment('electronic')">💳 Electronic</div>
       </div>
+    </div>
+    <div class="field">
+      <label>Trip Description (optional)</label>
+      <input type="text" id="tripDesc" placeholder="e.g. Airport run, CBD to Avondale">
     </div>
     <button class="save-btn" onclick="saveTrip()">Save Trip</button>
   </div>
@@ -513,6 +547,22 @@
       <input type="text" id="expNote" placeholder="e.g. description">
     </div>
     <button class="save-btn" style="background:var(--accent2);" onclick="saveExpense()">Save Expense</button>
+  </div>
+</div>
+
+<!-- CASH IN MODAL -->
+<div class="modal-bg" id="cashinModal">
+  <div class="modal">
+    <h3>💰 Cash Out</h3>
+    <div class="field">
+      <label>Amount</label>
+      <input type="number" inputmode="decimal" id="cashinAmount" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="cashinNote" placeholder="e.g. deposited to bank">
+    </div>
+    <button class="save-btn" style="background:var(--accent2);" onclick="saveCashIn()">Confirm Cash Out</button>
   </div>
 </div>
 
@@ -601,6 +651,7 @@ function renderSession(){
 let selectedPayment = 'cash';
 function openTripModal(){
   document.getElementById('tripFare').value='';
+  document.getElementById('tripDesc').value='';
   selectPayment('cash');
   document.getElementById('tripModal').classList.add('active');
 }
@@ -615,10 +666,12 @@ function selectPayment(method){
 function saveTrip(){
   const fare = parseFloat(document.getElementById('tripFare').value);
   if(!fare || fare<=0){ showToast('Enter a valid fare'); return; }
+  const desc = document.getElementById('tripDesc').value.trim();
   data.records.push({
     type:'trip',
     amount: fare,
     payment: selectedPayment,
+    description: desc,
     date: todayKey(),
     ts: Date.now()
   });
@@ -683,6 +736,54 @@ function deleteRecord(ts){
   renderHome(); renderHistory(); renderReports();
 }
 
+/* ---------- CASH IN (cash out) ---------- */
+function getLastCashInTs(){
+  const cashins = data.records.filter(r=>r.type==='cashin');
+  if(cashins.length===0) return null;
+  return Math.max(...cashins.map(r=>r.ts));
+}
+function computeSinceCashIn(){
+  const lastTs = getLastCashInTs();
+  const since = lastTs===null ? data.records : data.records.filter(r=>r.ts && r.ts>lastTs);
+  const trips = since.filter(r=>r.type==='trip');
+  const expenses = since.filter(r=>r.type==='expense');
+  const income = trips.reduce((s,r)=>s+r.amount,0);
+  const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
+  return { lastTs, income, expenseTotal, profit: income-expenseTotal };
+}
+function openCashInModal(){
+  const { profit } = computeSinceCashIn();
+  document.getElementById('cashinAmount').value = profit>0 ? profit.toFixed(2) : '';
+  document.getElementById('cashinNote').value = '';
+  document.getElementById('cashinModal').classList.add('active');
+}
+function closeCashInModal(){
+  document.getElementById('cashinModal').classList.remove('active');
+}
+function saveCashIn(){
+  const amt = parseFloat(document.getElementById('cashinAmount').value);
+  const note = document.getElementById('cashinNote').value;
+  if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+  data.records.push({
+    type:'cashin',
+    amount: amt,
+    note: note,
+    date: todayKey(),
+    ts: Date.now()
+  });
+  saveData();
+  closeCashInModal();
+  showToast('Cash out recorded');
+  renderHome();
+}
+function renderCashInCard(){
+  const { lastTs, income, expenseTotal, profit } = computeSinceCashIn();
+  document.getElementById('sinceCashInDate').textContent = lastTs ? ('since '+new Date(lastTs).toLocaleDateString(undefined,{month:'short',day:'numeric'})) : 'since you started';
+  document.getElementById('cashinIncome').textContent = fmt(income);
+  document.getElementById('cashinExpense').textContent = fmt(expenseTotal);
+  document.getElementById('cashinProfit').textContent = fmt(profit);
+}
+
 /* ---------- HOME RENDER ---------- */
 function renderHome(){
   const t = todayKey();
@@ -705,7 +806,7 @@ function renderHome(){
       const time = new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       if(r.type==='trip'){
         return `<div class="list-item">
-          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${time}</div></div>
+          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[time, r.description].filter(Boolean).join(' · ')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="li-amt income">+${fmt(r.amount)}</div>
             <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
@@ -734,6 +835,7 @@ function renderHome(){
   } else {
     odoBar.style.display='none';
   }
+  renderCashInCard();
 }
 
 /* ---------- REPORTS ---------- */
@@ -789,10 +891,12 @@ function renderReports(){
   const trips = inRange.filter(r=>r.type==='trip');
   const expenses = inRange.filter(r=>r.type==='expense');
   const sessions = inRange.filter(r=>r.type==='session');
+  const cashouts = inRange.filter(r=>r.type==='cashin');
 
   const income = trips.reduce((s,r)=>s+r.amount,0);
   const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
-  const profit = income - expenseTotal;
+  const cashOutTotal = cashouts.reduce((s,r)=>s+r.amount,0);
+  const profit = income - expenseTotal - cashOutTotal;
   const cash = trips.filter(r=>r.payment==='cash').reduce((s,r)=>s+r.amount,0);
   const electronic = trips.filter(r=>r.payment==='electronic').reduce((s,r)=>s+r.amount,0);
   const hoursMs = sessions.reduce((s,r)=>s+(r.end-r.start),0);
@@ -808,6 +912,7 @@ function renderReports(){
   document.getElementById('mHours').textContent = hours.toFixed(1)+'h';
   document.getElementById('mPerHour').textContent = hours>0 ? fmt(profit/hours) : '$0';
   document.getElementById('mFuelPct').textContent = income>0 ? ((fuelTotal/income)*100).toFixed(1)+'%' : '0%';
+  document.getElementById('mCashOut').textContent = fmt(cashOutTotal);
   document.getElementById('mCash').textContent = fmt(cash);
   document.getElementById('mElectronic').textContent = fmt(electronic);
 
@@ -906,9 +1011,17 @@ function renderHistory(){
     const dateStr = dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     if(r.type==='trip'){
       return `<div class="list-item">
-        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${dateStr}</div></div>
+        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[dateStr, r.description].filter(Boolean).join(' · ')}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="li-amt income">+${fmt(r.amount)}</div>
+          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+        </div>
+      </div>`;
+    } else if(r.type==='cashin'){
+      return `<div class="list-item">
+        <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${dateStr}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
           <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
         </div>
       </div>`;
