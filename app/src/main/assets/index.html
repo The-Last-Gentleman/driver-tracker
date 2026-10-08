@@ -379,6 +379,7 @@
           <div class="value profit" id="cashinProfit">$0</div>
         </div>
       </div>
+      <div id="cashinCarry" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;"></div>
       <button class="btn btn-full" style="background:var(--accent2);margin-top:12px;width:100%;" onclick="openCashInModal()">💰 Cash Out</button>
     </div>
 
@@ -464,6 +465,9 @@
     <div class="card">
       <div id="historyList"><div class="empty">No records yet</div></div>
     </div>
+    <div style="text-align:center;margin:6px 0 10px;">
+      <button class="btn btn-secondary" style="padding:10px 18px;font-size:13px;" onclick="switchScreen('backup')">💾 Backup &amp; Restore</button>
+    </div>
   </div>
 
 </div>
@@ -474,6 +478,7 @@
   </a>
   <!-- BACKUP SCREEN -->
   <div class="screen" id="screen-backup">
+    <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-bottom:10px;" onclick="switchScreen('history')">‹ Back</button>
     <h2>Backup & Restore</h2>
 
     <div class="card">
@@ -507,9 +512,6 @@
   </button>
   <button data-screen="history" onclick="switchScreen('history')">
     <span class="icon">🧾</span>History
-  </button>
-  <button data-screen="backup" onclick="switchScreen('backup')">
-    <span class="icon">💾</span>Backup
   </button>
 </nav>
 
@@ -581,6 +583,7 @@
 <div class="modal-bg" id="cashinModal">
   <div class="modal">
     <h3>💰 Cash Out</h3>
+    <div id="cashinAvail" style="font-size:13px;color:var(--muted);margin:-6px 0 12px;"></div>
     <div class="field">
       <label>Amount</label>
       <input type="number" inputmode="decimal" id="cashinAmount" placeholder="0.00">
@@ -589,7 +592,7 @@
       <label>Note (optional)</label>
       <input type="text" id="cashinNote" placeholder="e.g. deposited to bank">
     </div>
-    <button class="save-btn" style="background:var(--accent2);" onclick="saveCashIn()">Confirm Cash Out</button>
+    <button class="save-btn" id="cashinConfirmBtn" style="background:var(--accent2);" onclick="saveCashIn()">Confirm Cash Out</button>
   </div>
 </div>
 
@@ -772,15 +775,30 @@ function getLastCashInTs(){
 }
 function computeSinceCashIn(){
   const lastTs = getLastCashInTs();
-  const since = lastTs===null ? data.records : data.records.filter(r=>r.ts && r.ts>lastTs);
-  const trips = since.filter(r=>r.type==='trip');
-  const expenses = since.filter(r=>r.type==='expense');
-  const income = trips.reduce((s,r)=>s+r.amount,0);
-  const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
-  return { lastTs, income, expenseTotal, profit: income-expenseTotal };
+  let income=0, expenseTotal=0, carry=0, totalCashedOut=0;
+  data.records.forEach(r=>{
+    if(r.type==='cashin'){ totalCashedOut += r.amount; return; }
+    if(r.type!=='trip' && r.type!=='expense') return;
+    const sign = r.type==='trip' ? 1 : -1;
+    if(lastTs!==null && r.ts<=lastTs){
+      carry += sign*r.amount;            // earlier period: only matters as carry-over
+    } else if(r.type==='trip'){
+      income += r.amount;
+    } else {
+      expenseTotal += r.amount;
+    }
+  });
+  carry -= totalCashedOut;               // money already taken out
+  const round = n => Math.round(n*100)/100;
+  carry = round(carry);
+  return { lastTs, income, expenseTotal, carry, profit: round(carry + income - expenseTotal) };
 }
+let cashinArmed = false;
 function openCashInModal(){
   const { profit } = computeSinceCashIn();
+  cashinArmed = false;
+  document.getElementById('cashinAvail').textContent = 'Available to cash out: ' + fmt(profit);
+  document.getElementById('cashinConfirmBtn').textContent = 'Confirm Cash Out';
   document.getElementById('cashinAmount').value = profit>0 ? profit.toFixed(2) : '';
   document.getElementById('cashinNote').value = '';
   document.getElementById('cashinModal').classList.add('active');
@@ -792,6 +810,14 @@ function saveCashIn(){
   const amt = parseFloat(document.getElementById('cashinAmount').value);
   const note = document.getElementById('cashinNote').value;
   if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+  const available = computeSinceCashIn().profit;
+  if(amt > available + 0.005 && !cashinArmed){
+    cashinArmed = true;
+    document.getElementById('cashinConfirmBtn').textContent = '⚠️ More than available — tap again';
+    showToast('That is more than ' + fmt(available) + ' available');
+    return;
+  }
+  cashinArmed = false;
   data.records.push({
     type:'cashin',
     amount: amt,
@@ -805,7 +831,14 @@ function saveCashIn(){
   renderHome();
 }
 function renderCashInCard(){
-  const { lastTs, income, expenseTotal, profit } = computeSinceCashIn();
+  const { lastTs, income, expenseTotal, carry, profit } = computeSinceCashIn();
+  const carryEl = document.getElementById('cashinCarry');
+  if(lastTs!==null && Math.abs(carry)>=0.005){
+    carryEl.style.display='block';
+    carryEl.textContent = (carry>0 ? 'Includes ' : 'Includes -') + fmt(Math.abs(carry)) + ' carried over from before your last cash-out';
+  } else {
+    carryEl.style.display='none';
+  }
   document.getElementById('sinceCashInDate').textContent = lastTs ? ('since '+new Date(lastTs).toLocaleDateString(undefined,{month:'short',day:'numeric'})) : 'since you started';
   document.getElementById('cashinIncome').textContent = fmt(income);
   document.getElementById('cashinExpense').textContent = fmt(expenseTotal);
@@ -837,6 +870,14 @@ function renderHome(){
           <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[time, r.description].filter(Boolean).join(' · ')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="li-amt income">+${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else if(r.type==='cashin'){
+        return `<div class="list-item">
+          <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${time}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
             <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
           </div>
         </div>`;
@@ -938,7 +979,7 @@ function renderReports(){
   document.getElementById('mTrips').textContent = trips.length;
   document.getElementById('mAvgFare').textContent = trips.length? fmt(income/trips.length) : '$0';
   document.getElementById('mHours').textContent = hours.toFixed(1)+'h';
-  document.getElementById('mPerHour').textContent = hours>0 ? fmt(profit/hours) : '$0';
+  document.getElementById('mPerHour').textContent = hours>0 ? fmt((income-expenseTotal)/hours) : '$0';
   document.getElementById('mFuelPct').textContent = income>0 ? ((fuelTotal/income)*100).toFixed(1)+'%' : '0%';
   document.getElementById('mCashOut').textContent = fmt(cashOutTotal);
   document.getElementById('mCash').textContent = fmt(cash);
