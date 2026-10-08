@@ -492,7 +492,7 @@
         Paste a previously exported backup below. This replaces all current data in the app.
       </div>
       <textarea id="importBox" placeholder="Paste your backup text here..." style="width:100%;height:100px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
-      <button class="btn btn-expense" style="width:100%;margin-top:10px;" onclick="restoreBackup()">⬆️ Restore from Backup</button>
+      <button class="btn btn-expense" style="width:100%;margin-top:10px;" id="restoreBtn" onclick="restoreBackup()">⬆️ Restore from Backup</button>
     </div>
   </div>
 
@@ -1055,6 +1055,7 @@ function downloadBackup(){
     showToast('Download not supported here — use Copy instead');
   }
 }
+let restoreArmed = false;
 function restoreBackup(){
   const text = document.getElementById('importBox').value.trim();
   if(!text){ showToast('Paste a backup first'); return; }
@@ -1069,10 +1070,20 @@ function restoreBackup(){
     showToast('That doesn\'t look like a valid backup');
     return;
   }
-  if(!confirm('This will replace ALL current data in the app with this backup. Continue?')) return;
+  // In-app confirmation (browser confirm() popups are blocked in Android WebView)
+  if(!restoreArmed){
+    restoreArmed = true;
+    const btn = document.getElementById('restoreBtn');
+    btn.textContent = '⚠️ Tap again to REPLACE all data';
+    setTimeout(()=>{ restoreArmed = false; btn.textContent = '⬆️ Restore from Backup'; }, 6000);
+    showToast('Tap again within 6s to confirm');
+    return;
+  }
+  restoreArmed = false;
+  document.getElementById('restoreBtn').textContent = '⬆️ Restore from Backup';
   data = parsed;
   saveData();
-  showToast('Backup restored');
+  showToast('Restored '+data.records.length+' entries');
   renderHome();
   renderBackupBox();
 }

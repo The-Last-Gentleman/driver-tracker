@@ -2,6 +2,7 @@ package com.drivertracker.app
 
 import android.os.Bundle
 import android.view.KeyEvent
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,8 @@ class MainActivity : AppCompatActivity() {
         webView.settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
 
         webView.webViewClient = WebViewClient()
+        // Enables JS dialogs (alert/confirm) which WebView otherwise silently blocks
+        webView.webChromeClient = WebChromeClient()
 
         // Loads the app bundled inside app/src/main/assets/index.html
         webView.loadUrl("file:///android_asset/index.html")
