@@ -319,11 +319,17 @@
     font-size:16px;
     padding:4px 8px;
   }
+  .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;}
+  .drawer-bg.open{display:block;}
+  .drawer{position:fixed;top:0;bottom:0;left:0;width:260px;max-width:80%;background:var(--card);border-right:1px solid var(--border);z-index:70;transform:translateX(-100%);transition:transform .2s;}
+  .drawer.open{transform:translateX(0);}
+  .drawer-item{display:block;width:100%;text-align:left;background:none;color:var(--text);font-size:15px;padding:16px 18px;border-top:1px solid var(--border);}
 </style>
 </head>
 <body>
 
-<header>
+<header style="position:relative;">
+  <button onclick="openDrawer()" aria-label="Menu" style="position:absolute;left:12px;top:16px;background:var(--card2);color:var(--text);border:1px solid var(--border);width:40px;height:40px;border-radius:10px;font-size:20px;">☰</button>
   <h1>🚗 Driver Tracker</h1>
   <p>Track income, fuel, expenses & profit</p>
 </header>
@@ -358,29 +364,6 @@
           <div class="value profit" id="todayProfit">$0</div>
         </div>
       </div>
-    </div>
-
-    <div class="card" style="border-color:var(--accent2);">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
-        <div style="font-size:13px;color:var(--muted);">Since last cash-in</div>
-        <div style="font-size:11px;color:var(--muted);" id="sinceCashInDate">—</div>
-      </div>
-      <div class="today-grid">
-        <div class="stat">
-          <div class="label">Income</div>
-          <div class="value income" id="cashinIncome">$0</div>
-        </div>
-        <div class="stat">
-          <div class="label">Expenses</div>
-          <div class="value expense" id="cashinExpense">$0</div>
-        </div>
-        <div class="stat">
-          <div class="label">To Cash Out</div>
-          <div class="value profit" id="cashinProfit">$0</div>
-        </div>
-      </div>
-      <div id="cashinCarry" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:10px;"></div>
-      <button class="btn btn-full" style="background:var(--accent2);margin-top:12px;width:100%;" onclick="openCashInModal()">💰 Cash Out</button>
     </div>
 
     <div class="actions">
@@ -465,20 +448,25 @@
     <div class="card">
       <div id="historyList"><div class="empty">No records yet</div></div>
     </div>
-    <div style="text-align:center;margin:6px 0 10px;">
-      <button class="btn btn-secondary" style="padding:10px 18px;font-size:13px;" onclick="switchScreen('backup')">💾 Backup &amp; Restore</button>
+  </div>
+
+  <!-- CASH OUT SCREEN -->
+  <div class="screen" id="screen-cashout">
+    <h2>Cash Out</h2>
+    <div class="card" style="text-align:center;border-color:var(--accent2);">
+      <div style="font-size:13px;color:var(--muted);">Available to cash out</div>
+      <div id="cashBalance" style="font-size:40px;font-weight:800;color:var(--accent2);margin:6px 0 14px;">$0</div>
+      <button class="btn" style="background:var(--accent2);width:100%;" onclick="openCashInModal()">💰 Cash Out</button>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">Past Cash-Outs</h2>
+      <div id="cashoutList"><div class="empty">No cash-outs yet</div></div>
     </div>
   </div>
 
-</div>
-
-<div style="text-align:center;padding:10px 0 84px;">
-  <a href="https://thelastgentleman.vercel.app/" target="_blank" rel="noopener" style="color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.02em;">
-    Built by The Last Gent
-  </a>
   <!-- BACKUP SCREEN -->
   <div class="screen" id="screen-backup">
-    <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-bottom:10px;" onclick="switchScreen('history')">‹ Back</button>
+    <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-bottom:10px;" onclick="switchScreen('home')">‹ Back</button>
     <h2>Backup & Restore</h2>
 
     <div class="card">
@@ -501,6 +489,19 @@
     </div>
   </div>
 
+</div>
+
+<div style="text-align:center;padding:10px 0 84px;">
+  <a href="https://thelastgentleman.vercel.app/" target="_blank" rel="noopener" style="color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.02em;">
+    Built by The Last Gent
+  </a>
+</div>
+
+<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div style="font-size:18px;font-weight:700;padding:20px 18px 14px;">🚗 Driver Tracker</div>
+  <button class="drawer-item" onclick="goTo('cashout')">💰 Cash Out</button>
+  <button class="drawer-item" onclick="goTo('backup')">💾 Backup &amp; Restore</button>
 </div>
 
 <nav>
@@ -638,6 +639,7 @@ function switchScreen(name){
   if(name==='reports') renderReports();
   if(name==='history') renderHistory();
   if(name==='backup') renderBackupBox();
+  if(name==='cashout') renderCashOut();
 }
 
 /* ---------- SESSION (shift) ---------- */
@@ -764,40 +766,24 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 function deleteRecord(ts){
   data.records = data.records.filter(r=>r.ts!==ts);
   saveData();
-  renderHome(); renderHistory(); renderReports();
+  renderHome(); renderHistory(); renderReports(); renderCashOut();
 }
 
 /* ---------- CASH IN (cash out) ---------- */
-function getLastCashInTs(){
-  const cashins = data.records.filter(r=>r.type==='cashin');
-  if(cashins.length===0) return null;
-  return Math.max(...cashins.map(r=>r.ts));
-}
-function computeSinceCashIn(){
-  const lastTs = getLastCashInTs();
-  let income=0, expenseTotal=0, carry=0, totalCashedOut=0;
+function computeBalance(){
+  let bal=0;
   data.records.forEach(r=>{
-    if(r.type==='cashin'){ totalCashedOut += r.amount; return; }
-    if(r.type!=='trip' && r.type!=='expense') return;
-    const sign = r.type==='trip' ? 1 : -1;
-    if(lastTs!==null && r.ts<=lastTs){
-      carry += sign*r.amount;            // earlier period: only matters as carry-over
-    } else if(r.type==='trip'){
-      income += r.amount;
-    } else {
-      expenseTotal += r.amount;
-    }
+    if(r.type==='trip') bal+=r.amount;
+    else if(r.type==='expense' || r.type==='cashin') bal-=r.amount;
   });
-  carry -= totalCashedOut;               // money already taken out
-  const round = n => Math.round(n*100)/100;
-  carry = round(carry);
-  return { lastTs, income, expenseTotal, carry, profit: round(carry + income - expenseTotal) };
+  return Math.round(bal*100)/100;
 }
+function money(n){ return (n<0?'-':'')+fmt(Math.abs(n)); }
 let cashinArmed = false;
 function openCashInModal(){
-  const { profit } = computeSinceCashIn();
+  const profit = computeBalance();
   cashinArmed = false;
-  document.getElementById('cashinAvail').textContent = 'Available to cash out: ' + fmt(profit);
+  document.getElementById('cashinAvail').textContent = 'Available to cash out: ' + money(profit);
   document.getElementById('cashinConfirmBtn').textContent = 'Confirm Cash Out';
   document.getElementById('cashinAmount').value = profit>0 ? profit.toFixed(2) : '';
   document.getElementById('cashinNote').value = '';
@@ -810,11 +796,11 @@ function saveCashIn(){
   const amt = parseFloat(document.getElementById('cashinAmount').value);
   const note = document.getElementById('cashinNote').value;
   if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
-  const available = computeSinceCashIn().profit;
+  const available = computeBalance();
   if(amt > available + 0.005 && !cashinArmed){
     cashinArmed = true;
     document.getElementById('cashinConfirmBtn').textContent = '⚠️ More than available — tap again';
-    showToast('That is more than ' + fmt(available) + ' available');
+    showToast('That is more than ' + money(available) + ' available');
     return;
   }
   cashinArmed = false;
@@ -828,22 +814,23 @@ function saveCashIn(){
   saveData();
   closeCashInModal();
   showToast('Cash out recorded');
-  renderHome();
+  renderHome(); renderCashOut();
 }
-function renderCashInCard(){
-  const { lastTs, income, expenseTotal, carry, profit } = computeSinceCashIn();
-  const carryEl = document.getElementById('cashinCarry');
-  if(lastTs!==null && Math.abs(carry)>=0.005){
-    carryEl.style.display='block';
-    carryEl.textContent = (carry>0 ? 'Includes ' : 'Includes -') + fmt(Math.abs(carry)) + ' carried over from before your last cash-out';
-  } else {
-    carryEl.style.display='none';
-  }
-  document.getElementById('sinceCashInDate').textContent = lastTs ? ('since '+new Date(lastTs).toLocaleDateString(undefined,{month:'short',day:'numeric'})) : 'since you started';
-  document.getElementById('cashinIncome').textContent = fmt(income);
-  document.getElementById('cashinExpense').textContent = fmt(expenseTotal);
-  document.getElementById('cashinProfit').textContent = fmt(profit);
+function renderCashOut(){
+  const bal=computeBalance();
+  document.getElementById('cashBalance').textContent=money(bal);
+  const list=data.records.filter(r=>r.type==='cashin').sort((x,y)=>y.ts-x.ts);
+  document.getElementById('cashoutList').innerHTML = list.length ? list.map(r=>{
+    const d=new Date(r.ts);
+    const ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return `<div class="list-item"><div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${ds}</div></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
+      <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
+  }).join('') : '<div class="empty">No cash-outs yet</div>';
 }
+function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerBg').classList.add('open'); }
+function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerBg').classList.remove('open'); }
+function goTo(name){ closeDrawer(); switchScreen(name); }
 
 /* ---------- HOME RENDER ---------- */
 function renderHome(){
@@ -904,7 +891,6 @@ function renderHome(){
   } else {
     odoBar.style.display='none';
   }
-  renderCashInCard();
 }
 
 /* ---------- REPORTS ---------- */
@@ -965,7 +951,7 @@ function renderReports(){
   const income = trips.reduce((s,r)=>s+r.amount,0);
   const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
   const cashOutTotal = cashouts.reduce((s,r)=>s+r.amount,0);
-  const profit = income - expenseTotal - cashOutTotal;
+  const profit = income - expenseTotal;
   const cash = trips.filter(r=>r.payment==='cash').reduce((s,r)=>s+r.amount,0);
   const electronic = trips.filter(r=>r.payment==='electronic').reduce((s,r)=>s+r.amount,0);
   const hoursMs = sessions.reduce((s,r)=>s+(r.end-r.start),0);
