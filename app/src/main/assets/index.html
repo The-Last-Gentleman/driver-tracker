@@ -319,11 +319,19 @@
     font-size:16px;
     padding:4px 8px;
   }
+  .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;}
+  .drawer-bg.open{display:block;}
+  .drawer{position:fixed;top:0;bottom:0;left:0;width:260px;max-width:80%;background:var(--card);border-right:1px solid var(--border);z-index:70;transform:translateX(-100%);transition:transform .2s;}
+  .drawer.open{transform:translateX(0);}
+  .drawer-item{display:block;width:100%;text-align:left;background:none;color:var(--text);font-size:15px;padding:16px 18px;border-top:1px solid var(--border);}
+  #menuBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;z-index:40;width:44px;height:44px;border-radius:12px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  header{padding-left:64px;padding-right:64px;}
 </style>
 </head>
 <body>
 
-<header>
+<header style="position:relative;">
+  <button id="menuBtn" onclick="openDrawer()" aria-label="Menu">☰</button>
   <h1>🚗 Driver Tracker</h1>
   <p>Track income, fuel, expenses & profit</p>
 </header>
@@ -414,6 +422,7 @@
       <div class="metric-row"><span class="m-label">Hours worked</span><span class="m-val" id="mHours">0h</span></div>
       <div class="metric-row"><span class="m-label">Earnings / hour</span><span class="m-val" id="mPerHour">$0</span></div>
       <div class="metric-row"><span class="m-label">Fuel cost % of income</span><span class="m-val" id="mFuelPct">0%</span></div>
+      <div class="metric-row"><span class="m-label">Cash withdrawn</span><span class="m-val" id="mCashOut">$0</span></div>
       <div class="metric-row"><span class="m-label">Cash income</span><span class="m-val" id="mCash">$0</span></div>
       <div class="metric-row"><span class="m-label">Electronic income</span><span class="m-val" id="mElectronic">$0</span></div>
     </div>
@@ -436,12 +445,74 @@
       <div class="period-tab active" data-hf="all" onclick="setHistFilter('all')">All</div>
       <div class="period-tab" data-hf="trip" onclick="setHistFilter('trip')">Trips</div>
       <div class="period-tab" data-hf="expense" onclick="setHistFilter('expense')">Expenses</div>
+      <div class="period-tab" data-hf="cashin" onclick="setHistFilter('cashin')">Cash Outs</div>
     </div>
     <div class="card">
       <div id="historyList"><div class="empty">No records yet</div></div>
     </div>
   </div>
 
+  <!-- CASH OUT SCREEN -->
+  <div class="screen" id="screen-cashout">
+    <h2>Cash Out</h2>
+    <div class="card" style="text-align:center;border-color:var(--accent2);">
+      <div style="font-size:13px;color:var(--muted);">Available to cash out</div>
+      <div id="cashBalance" style="font-size:40px;font-weight:800;color:var(--accent2);margin:6px 0 14px;">$0</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn" style="background:var(--accent2);" onclick="openCashInModal()">💰 Cash Out</button>
+        <button class="btn btn-secondary" onclick="openPoolModal('pay')">👤 Pay Myself</button>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent);">
+      <div style="font-size:13px;color:var(--muted);text-align:center;">👤 My Pool</div>
+      <div id="poolBalance" style="font-size:34px;font-weight:800;color:var(--accent);text-align:center;margin:6px 0 14px;">$0</div>
+      <button class="btn btn-income" style="width:100%;" onclick="openPoolModal('used')">Used</button>
+      <div id="poolList" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">Past Cash-Outs</h2>
+      <div id="cashoutList"><div class="empty">No cash-outs yet</div></div>
+    </div>
+  </div>
+
+  <!-- BACKUP SCREEN -->
+  <div class="screen" id="screen-backup">
+    <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-bottom:10px;" onclick="switchScreen('home')">‹ Back</button>
+    <h2>Backup & Restore</h2>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Export Your Data</h2>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+        Copy this and save it somewhere safe (Notes app, email draft, cloud drive) before uninstalling or switching devices.
+      </div>
+      <textarea id="exportBox" readonly style="width:100%;height:100px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
+      <button class="btn btn-income" style="width:100%;margin-top:10px;" onclick="copyBackup()">📋 Copy to Clipboard</button>
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="downloadBackup()">⬇️ Download as File</button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;">Restore From Backup</h2>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+        Paste a previously exported backup below. This replaces all current data in the app.
+      </div>
+      <textarea id="importBox" placeholder="Paste your backup text here..." style="width:100%;height:100px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
+      <button class="btn btn-expense" style="width:100%;margin-top:10px;" id="restoreBtn" onclick="restoreBackup()">⬆️ Restore from Backup</button>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;padding:10px 0 84px;">
+  <a href="https://thelastgentleman.vercel.app/" target="_blank" rel="noopener" style="color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.02em;">
+    Built by The Last Gent
+  </a>
+</div>
+
+<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div style="font-size:18px;font-weight:700;padding:20px 18px 14px;">🚗 Driver Tracker</div>
+  <button class="drawer-item" onclick="goTo('cashout')">💰 Cash Out</button>
+  <button class="drawer-item" onclick="goTo('backup')">💾 Backup &amp; Restore</button>
 </div>
 
 <nav>
@@ -470,6 +541,10 @@
         <div class="toggle-opt selected" id="payCash" onclick="selectPayment('cash')">💵 Cash</div>
         <div class="toggle-opt" id="payElectronic" onclick="selectPayment('electronic')">💳 Electronic</div>
       </div>
+    </div>
+    <div class="field">
+      <label>Trip Description (optional)</label>
+      <input type="text" id="tripDesc" placeholder="e.g. Airport run, CBD to Avondale">
     </div>
     <button class="save-btn" onclick="saveTrip()">Save Trip</button>
   </div>
@@ -516,6 +591,45 @@
   </div>
 </div>
 
+<!-- CASH IN MODAL -->
+<div class="modal-bg" id="cashinModal">
+  <div class="modal">
+    <h3>💰 Cash Out</h3>
+    <div id="cashinAvail" style="font-size:13px;color:var(--muted);margin:-6px 0 12px;"></div>
+    <div class="field">
+      <label>Total amount</label>
+      <input type="number" inputmode="decimal" id="cashinAmount" placeholder="0.00" oninput="updateSplitHint()">
+    </div>
+    <div class="field">
+      <label>Kept for me (optional)</label>
+      <input type="number" inputmode="decimal" id="cashinMine" placeholder="0.00" oninput="updateSplitHint()">
+      <div id="cashinSplit" style="font-size:12px;color:var(--muted);margin-top:6px;min-height:14px;"></div>
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="cashinNote" placeholder="e.g. deposited to bank">
+    </div>
+    <button class="save-btn" id="cashinConfirmBtn" style="background:var(--accent2);" onclick="saveCashIn()">Confirm Cash Out</button>
+  </div>
+</div>
+
+<!-- POOL MODAL (Pay Myself / Used) -->
+<div class="modal-bg" id="poolModal">
+  <div class="modal">
+    <h3 id="poolTitle"></h3>
+    <div id="poolHint" style="font-size:13px;color:var(--muted);margin:-6px 0 12px;"></div>
+    <div class="field">
+      <label>Amount</label>
+      <input type="number" inputmode="decimal" id="poolAmount" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="poolNote">
+    </div>
+    <button class="save-btn" id="poolConfirmBtn" onclick="savePool()">Confirm</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -557,6 +671,8 @@ function switchScreen(name){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
   if(name==='reports') renderReports();
   if(name==='history') renderHistory();
+  if(name==='backup') renderBackupBox();
+  if(name==='cashout') renderCashOut();
 }
 
 /* ---------- SESSION (shift) ---------- */
@@ -601,6 +717,7 @@ function renderSession(){
 let selectedPayment = 'cash';
 function openTripModal(){
   document.getElementById('tripFare').value='';
+  document.getElementById('tripDesc').value='';
   selectPayment('cash');
   document.getElementById('tripModal').classList.add('active');
 }
@@ -615,10 +732,12 @@ function selectPayment(method){
 function saveTrip(){
   const fare = parseFloat(document.getElementById('tripFare').value);
   if(!fare || fare<=0){ showToast('Enter a valid fare'); return; }
+  const desc = document.getElementById('tripDesc').value.trim();
   data.records.push({
     type:'trip',
     amount: fare,
     payment: selectedPayment,
+    description: desc,
     date: todayKey(),
     ts: Date.now()
   });
@@ -680,13 +799,143 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 function deleteRecord(ts){
   data.records = data.records.filter(r=>r.ts!==ts);
   saveData();
-  renderHome(); renderHistory(); renderReports();
+  renderHome(); renderHistory(); renderReports(); renderCashOut();
 }
+
+/* ---------- CASH IN (cash out) ---------- */
+function computeBalance(){
+  let bal=0;
+  data.records.forEach(r=>{
+    if(r.type==='trip') bal+=r.amount;
+    else if(r.type==='expense' || r.type==='cashin' || r.type==='payself') bal-=r.amount;
+  });
+  return Math.round(bal*100)/100;
+}
+function money(n){ return (n<0?'-':'')+fmt(Math.abs(n)); }
+let cashinArmed = false;
+function openCashInModal(){
+  const profit = computeBalance();
+  cashinArmed = false;
+  document.getElementById('cashinAvail').textContent = 'Available to cash out: ' + money(profit);
+  document.getElementById('cashinConfirmBtn').textContent = 'Confirm Cash Out';
+  document.getElementById('cashinAmount').value = profit>0 ? profit.toFixed(2) : '';
+  document.getElementById('cashinNote').value = '';
+  document.getElementById('cashinMine').value = '';
+  document.getElementById('cashinSplit').textContent = '';
+  document.getElementById('cashinModal').classList.add('active');
+}
+function updateSplitHint(){
+  const amt = parseFloat(document.getElementById('cashinAmount').value)||0;
+  const mine = parseFloat(document.getElementById('cashinMine').value)||0;
+  document.getElementById('cashinSplit').textContent = (amt>0 && mine>0) ? ('Company gets '+money(amt-mine)+' · You keep '+money(mine)) : '';
+}
+function closeCashInModal(){
+  document.getElementById('cashinModal').classList.remove('active');
+}
+function saveCashIn(){
+  const amt = parseFloat(document.getElementById('cashinAmount').value);
+  const note = document.getElementById('cashinNote').value;
+  if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+  const mine = parseFloat(document.getElementById('cashinMine').value)||0;
+  if(mine<0 || mine>amt){ showToast("Your share can't be more than the total"); return; }
+  const available = computeBalance();
+  if(amt > available + 0.005 && !cashinArmed){
+    cashinArmed = true;
+    document.getElementById('cashinConfirmBtn').textContent = '⚠️ More than available — tap again';
+    showToast('That is more than ' + money(available) + ' available');
+    return;
+  }
+  cashinArmed = false;
+  data.records.push({
+    type:'cashin',
+    amount: amt,
+    mine: mine>0 ? mine : 0,
+    note: note,
+    date: todayKey(),
+    ts: Date.now()
+  });
+  saveData();
+  closeCashInModal();
+  showToast('Cash out recorded');
+  renderHome(); renderCashOut();
+}
+function computePool(){
+  let p=0;
+  data.records.forEach(r=>{
+    if(r.type==='cashin' && r.mine) p+=r.mine;
+    else if(r.type==='payself') p+=r.amount;
+    else if(r.type==='used') p-=r.amount;
+  });
+  return Math.round(p*100)/100;
+}
+let poolMode='used', poolArmed=false;
+function openPoolModal(mode){
+  poolMode=mode; poolArmed=false;
+  const pay = mode==='pay';
+  document.getElementById('poolTitle').textContent = pay ? '👤 Pay Myself' : 'Used from My Pool';
+  document.getElementById('poolHint').textContent = pay ? ('Available to cash out: '+money(computeBalance())) : ('In your pool: '+money(computePool()));
+  const btn=document.getElementById('poolConfirmBtn');
+  btn.textContent = pay ? 'Confirm Pay Myself' : 'Confirm Used';
+  btn.style.background = pay ? 'var(--accent2)' : 'var(--accent)';
+  document.getElementById('poolNote').placeholder = pay ? 'e.g. weekly pay' : 'e.g. lunch, airtime';
+  document.getElementById('poolAmount').value='';
+  document.getElementById('poolNote').value='';
+  document.getElementById('poolModal').classList.add('active');
+}
+function savePool(){
+  const amt=parseFloat(document.getElementById('poolAmount').value);
+  const note=document.getElementById('poolNote').value;
+  if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
+  if(poolMode==='used'){
+    const pool=computePool();
+    if(amt>pool+0.005){ showToast('Not enough in your pool ('+money(pool)+')'); return; }
+    data.records.push({type:'used',amount:amt,note:note,date:todayKey(),ts:Date.now()});
+  } else {
+    const avail=computeBalance();
+    if(amt>avail+0.005 && !poolArmed){
+      poolArmed=true;
+      document.getElementById('poolConfirmBtn').textContent='⚠️ More than available — tap again';
+      showToast('That is more than '+money(avail)+' available');
+      return;
+    }
+    data.records.push({type:'payself',amount:amt,note:note,date:todayKey(),ts:Date.now()});
+  }
+  poolArmed=false;
+  saveData();
+  document.getElementById('poolModal').classList.remove('active');
+  showToast(poolMode==='used' ? 'Recorded' : 'Added to your pool');
+  renderHome(); renderCashOut();
+}
+function renderCashOut(){
+  const bal=computeBalance();
+  document.getElementById('cashBalance').textContent=money(bal);
+  document.getElementById('poolBalance').textContent=money(computePool());
+  const pl=data.records.filter(r=>(r.type==='cashin'&&r.mine)||r.type==='payself'||r.type==='used').sort((x,y)=>y.ts-x.ts);
+  document.getElementById('poolList').innerHTML = pl.length ? pl.map(r=>{
+    const d=new Date(r.ts);
+    const ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const note=r.note?' · '+r.note:'';
+    if(r.type==='used') return `<div class="list-item"><div><div class="li-main">Used${note}</div><div class="li-sub">${ds}</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="li-amt expense">-${fmt(r.amount)}</div><span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
+    if(r.type==='payself') return `<div class="list-item"><div><div class="li-main">👤 Paid myself${note}</div><div class="li-sub">${ds}</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="li-amt income">+${fmt(r.amount)}</div><span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
+    return `<div class="list-item"><div><div class="li-main">Kept from cash-out${note}</div><div class="li-sub">${ds}</div></div><div class="li-amt income">+${fmt(r.mine)}</div></div>`;
+  }).join('') : '';
+  const list=data.records.filter(r=>r.type==='cashin').sort((x,y)=>y.ts-x.ts);
+  document.getElementById('cashoutList').innerHTML = list.length ? list.map(r=>{
+    const d=new Date(r.ts);
+    const ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return `<div class="list-item"><div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${ds}${r.mine?' · '+fmt(r.amount-r.mine)+' company · '+fmt(r.mine)+' me':''}</div></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
+      <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
+  }).join('') : '<div class="empty">No cash-outs yet</div>';
+}
+function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerBg').classList.add('open'); }
+function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerBg').classList.remove('open'); }
+function goTo(name){ closeDrawer(); switchScreen(name); }
 
 /* ---------- HOME RENDER ---------- */
 function renderHome(){
   const t = todayKey();
-  const todays = data.records.filter(r=>r.date===t && r.type!=='session');
+  const todays = data.records.filter(r=>r.date===t && r.type!=='session' && r.type!=='used');
   let income=0, expense=0;
   todays.forEach(r=>{
     if(r.type==='trip') income+=r.amount;
@@ -705,9 +954,25 @@ function renderHome(){
       const time = new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       if(r.type==='trip'){
         return `<div class="list-item">
-          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${time}</div></div>
+          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[time, r.description].filter(Boolean).join(' · ')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="li-amt income">+${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else if(r.type==='payself'){
+        return `<div class="list-item">
+          <div><div class="li-main">👤 Paid Myself${r.note?' · '+r.note:''}</div><div class="li-sub">${time}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else if(r.type==='cashin'){
+        return `<div class="list-item">
+          <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${time}${r.mine?' · '+fmt(r.mine)+' kept':''}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
             <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
           </div>
         </div>`;
@@ -789,9 +1054,11 @@ function renderReports(){
   const trips = inRange.filter(r=>r.type==='trip');
   const expenses = inRange.filter(r=>r.type==='expense');
   const sessions = inRange.filter(r=>r.type==='session');
+  const cashouts = inRange.filter(r=>r.type==='cashin'||r.type==='payself');
 
   const income = trips.reduce((s,r)=>s+r.amount,0);
   const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
+  const cashOutTotal = cashouts.reduce((s,r)=>s+r.amount,0);
   const profit = income - expenseTotal;
   const cash = trips.filter(r=>r.payment==='cash').reduce((s,r)=>s+r.amount,0);
   const electronic = trips.filter(r=>r.payment==='electronic').reduce((s,r)=>s+r.amount,0);
@@ -806,8 +1073,9 @@ function renderReports(){
   document.getElementById('mTrips').textContent = trips.length;
   document.getElementById('mAvgFare').textContent = trips.length? fmt(income/trips.length) : '$0';
   document.getElementById('mHours').textContent = hours.toFixed(1)+'h';
-  document.getElementById('mPerHour').textContent = hours>0 ? fmt(profit/hours) : '$0';
+  document.getElementById('mPerHour').textContent = hours>0 ? fmt((income-expenseTotal)/hours) : '$0';
   document.getElementById('mFuelPct').textContent = income>0 ? ((fuelTotal/income)*100).toFixed(1)+'%' : '0%';
+  document.getElementById('mCashOut').textContent = fmt(cashOutTotal);
   document.getElementById('mCash').textContent = fmt(cash);
   document.getElementById('mElectronic').textContent = fmt(electronic);
 
@@ -884,6 +1152,77 @@ function renderFuelEfficiency(periodStart, periodEnd){
   `;
 }
 
+/* ---------- BACKUP & RESTORE ---------- */
+function renderBackupBox(){
+  document.getElementById('exportBox').value = JSON.stringify(data);
+  document.getElementById('importBox').value = '';
+}
+function copyBackup(){
+  const box = document.getElementById('exportBox');
+  box.select();
+  box.setSelectionRange(0, 999999);
+  try{
+    navigator.clipboard.writeText(box.value).then(()=>{
+      showToast('Copied to clipboard');
+    }).catch(()=>{
+      document.execCommand('copy');
+      showToast('Copied to clipboard');
+    });
+  }catch(e){
+    document.execCommand('copy');
+    showToast('Copied to clipboard');
+  }
+}
+function downloadBackup(){
+  try{
+    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = 'driver-tracker-backup-'+stamp+'.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Download started');
+  }catch(e){
+    showToast('Download not supported here — use Copy instead');
+  }
+}
+let restoreArmed = false;
+function restoreBackup(){
+  const text = document.getElementById('importBox').value.trim();
+  if(!text){ showToast('Paste a backup first'); return; }
+  let parsed;
+  try{
+    parsed = JSON.parse(text);
+  }catch(e){
+    showToast('That doesn\'t look like a valid backup');
+    return;
+  }
+  if(!parsed || !Array.isArray(parsed.records)){
+    showToast('That doesn\'t look like a valid backup');
+    return;
+  }
+  // In-app confirmation (browser confirm() popups are blocked in Android WebView)
+  if(!restoreArmed){
+    restoreArmed = true;
+    const btn = document.getElementById('restoreBtn');
+    btn.textContent = '⚠️ Tap again to REPLACE all data';
+    setTimeout(()=>{ restoreArmed = false; btn.textContent = '⬆️ Restore from Backup'; }, 6000);
+    showToast('Tap again within 6s to confirm');
+    return;
+  }
+  restoreArmed = false;
+  document.getElementById('restoreBtn').textContent = '⬆️ Restore from Backup';
+  data = parsed;
+  saveData();
+  showToast('Restored '+data.records.length+' entries');
+  renderHome();
+  renderBackupBox();
+}
+
 /* ---------- HISTORY ---------- */
 let histFilter = 'all';
 function setHistFilter(f){
@@ -892,8 +1231,9 @@ function setHistFilter(f){
   renderHistory();
 }
 function renderHistory(){
-  let records = data.records.filter(r=>r.type!=='session');
-  if(histFilter!=='all') records = records.filter(r=>r.type===histFilter);
+  let records = data.records.filter(r=>r.type!=='session' && r.type!=='used');
+  if(histFilter==='cashin') records = records.filter(r=>r.type==='cashin'||r.type==='payself');
+  else if(histFilter!=='all') records = records.filter(r=>r.type===histFilter);
   records = records.slice().sort((a,b)=>b.ts-a.ts);
 
   const list = document.getElementById('historyList');
@@ -906,9 +1246,25 @@ function renderHistory(){
     const dateStr = dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     if(r.type==='trip'){
       return `<div class="list-item">
-        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${dateStr}</div></div>
+        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[dateStr, r.description].filter(Boolean).join(' · ')}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="li-amt income">+${fmt(r.amount)}</div>
+          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+        </div>
+      </div>`;
+    } else if(r.type==='payself'){
+      return `<div class="list-item">
+        <div><div class="li-main">👤 Paid Myself${r.note?' · '+r.note:''}</div><div class="li-sub">${dateStr}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
+          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+        </div>
+      </div>`;
+    } else if(r.type==='cashin'){
+      return `<div class="list-item">
+        <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${dateStr}${r.mine?' · '+fmt(r.amount-r.mine)+' company · '+fmt(r.mine)+' me':''}</div></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
           <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
         </div>
       </div>`;
@@ -926,6 +1282,20 @@ function renderHistory(){
   }).join('');
 }
 
+
+/* left-edge swipe opens the drawer; swipe left closes it */
+(function(){
+  let sx=null, sy=null;
+  document.addEventListener('touchstart',e=>{const t=e.touches[0]; sx=t.clientX; sy=t.clientY;},{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(sx===null) return;
+    const t=e.changedTouches[0], dx=t.clientX-sx, dy=Math.abs(t.clientY-sy);
+    const open=document.getElementById('drawer').classList.contains('open');
+    if(!open && sx<28 && dx>60 && dy<50) openDrawer();
+    else if(open && dx<-60 && dy<50) closeDrawer();
+    sx=null;
+  },{passive:true});
+})();
 /* ---------- INIT ---------- */
 renderHome();
 
