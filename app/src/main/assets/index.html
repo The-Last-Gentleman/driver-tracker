@@ -319,17 +319,11 @@
     font-size:16px;
     padding:4px 8px;
   }
-  .drawer-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60;}
-  .drawer-bg.open{display:block;}
-  .drawer{position:fixed;top:0;bottom:0;left:0;width:260px;max-width:80%;background:var(--card);border-right:1px solid var(--border);z-index:70;transform:translateX(-100%);transition:transform .2s;}
-  .drawer.open{transform:translateX(0);}
-  .drawer-item{display:block;width:100%;text-align:left;background:none;color:var(--text);font-size:15px;padding:16px 18px;border-top:1px solid var(--border);}
 </style>
 </head>
 <body>
 
-<header style="position:relative;">
-  <button onclick="openDrawer()" aria-label="Menu" style="position:absolute;left:12px;top:16px;background:var(--card2);color:var(--text);border:1px solid var(--border);width:40px;height:40px;border-radius:10px;font-size:20px;">☰</button>
+<header>
   <h1>🚗 Driver Tracker</h1>
   <p>Track income, fuel, expenses & profit</p>
 </header>
@@ -420,7 +414,6 @@
       <div class="metric-row"><span class="m-label">Hours worked</span><span class="m-val" id="mHours">0h</span></div>
       <div class="metric-row"><span class="m-label">Earnings / hour</span><span class="m-val" id="mPerHour">$0</span></div>
       <div class="metric-row"><span class="m-label">Fuel cost % of income</span><span class="m-val" id="mFuelPct">0%</span></div>
-      <div class="metric-row"><span class="m-label">Cash withdrawn</span><span class="m-val" id="mCashOut">$0</span></div>
       <div class="metric-row"><span class="m-label">Cash income</span><span class="m-val" id="mCash">$0</span></div>
       <div class="metric-row"><span class="m-label">Electronic income</span><span class="m-val" id="mElectronic">$0</span></div>
     </div>
@@ -443,65 +436,12 @@
       <div class="period-tab active" data-hf="all" onclick="setHistFilter('all')">All</div>
       <div class="period-tab" data-hf="trip" onclick="setHistFilter('trip')">Trips</div>
       <div class="period-tab" data-hf="expense" onclick="setHistFilter('expense')">Expenses</div>
-      <div class="period-tab" data-hf="cashin" onclick="setHistFilter('cashin')">Cash Outs</div>
     </div>
     <div class="card">
       <div id="historyList"><div class="empty">No records yet</div></div>
     </div>
   </div>
 
-  <!-- CASH OUT SCREEN -->
-  <div class="screen" id="screen-cashout">
-    <h2>Cash Out</h2>
-    <div class="card" style="text-align:center;border-color:var(--accent2);">
-      <div style="font-size:13px;color:var(--muted);">Available to cash out</div>
-      <div id="cashBalance" style="font-size:40px;font-weight:800;color:var(--accent2);margin:6px 0 14px;">$0</div>
-      <button class="btn" style="background:var(--accent2);width:100%;" onclick="openCashInModal()">💰 Cash Out</button>
-    </div>
-    <div class="card">
-      <h2 style="margin-top:0;">Past Cash-Outs</h2>
-      <div id="cashoutList"><div class="empty">No cash-outs yet</div></div>
-    </div>
-  </div>
-
-  <!-- BACKUP SCREEN -->
-  <div class="screen" id="screen-backup">
-    <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-bottom:10px;" onclick="switchScreen('home')">‹ Back</button>
-    <h2>Backup & Restore</h2>
-
-    <div class="card">
-      <h2 style="margin-top:0;">Export Your Data</h2>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
-        Copy this and save it somewhere safe (Notes app, email draft, cloud drive) before uninstalling or switching devices.
-      </div>
-      <textarea id="exportBox" readonly style="width:100%;height:100px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
-      <button class="btn btn-income" style="width:100%;margin-top:10px;" onclick="copyBackup()">📋 Copy to Clipboard</button>
-      <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="downloadBackup()">⬇️ Download as File</button>
-    </div>
-
-    <div class="card">
-      <h2 style="margin-top:0;">Restore From Backup</h2>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
-        Paste a previously exported backup below. This replaces all current data in the app.
-      </div>
-      <textarea id="importBox" placeholder="Paste your backup text here..." style="width:100%;height:100px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
-      <button class="btn btn-expense" style="width:100%;margin-top:10px;" id="restoreBtn" onclick="restoreBackup()">⬆️ Restore from Backup</button>
-    </div>
-  </div>
-
-</div>
-
-<div style="text-align:center;padding:10px 0 84px;">
-  <a href="https://thelastgentleman.vercel.app/" target="_blank" rel="noopener" style="color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.02em;">
-    Built by The Last Gent
-  </a>
-</div>
-
-<div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
-<div class="drawer" id="drawer">
-  <div style="font-size:18px;font-weight:700;padding:20px 18px 14px;">🚗 Driver Tracker</div>
-  <button class="drawer-item" onclick="goTo('cashout')">💰 Cash Out</button>
-  <button class="drawer-item" onclick="goTo('backup')">💾 Backup &amp; Restore</button>
 </div>
 
 <nav>
@@ -530,10 +470,6 @@
         <div class="toggle-opt selected" id="payCash" onclick="selectPayment('cash')">💵 Cash</div>
         <div class="toggle-opt" id="payElectronic" onclick="selectPayment('electronic')">💳 Electronic</div>
       </div>
-    </div>
-    <div class="field">
-      <label>Trip Description (optional)</label>
-      <input type="text" id="tripDesc" placeholder="e.g. Airport run, CBD to Avondale">
     </div>
     <button class="save-btn" onclick="saveTrip()">Save Trip</button>
   </div>
@@ -580,23 +516,6 @@
   </div>
 </div>
 
-<!-- CASH IN MODAL -->
-<div class="modal-bg" id="cashinModal">
-  <div class="modal">
-    <h3>💰 Cash Out</h3>
-    <div id="cashinAvail" style="font-size:13px;color:var(--muted);margin:-6px 0 12px;"></div>
-    <div class="field">
-      <label>Amount</label>
-      <input type="number" inputmode="decimal" id="cashinAmount" placeholder="0.00">
-    </div>
-    <div class="field">
-      <label>Note (optional)</label>
-      <input type="text" id="cashinNote" placeholder="e.g. deposited to bank">
-    </div>
-    <button class="save-btn" id="cashinConfirmBtn" style="background:var(--accent2);" onclick="saveCashIn()">Confirm Cash Out</button>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -638,8 +557,6 @@ function switchScreen(name){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
   if(name==='reports') renderReports();
   if(name==='history') renderHistory();
-  if(name==='backup') renderBackupBox();
-  if(name==='cashout') renderCashOut();
 }
 
 /* ---------- SESSION (shift) ---------- */
@@ -684,7 +601,6 @@ function renderSession(){
 let selectedPayment = 'cash';
 function openTripModal(){
   document.getElementById('tripFare').value='';
-  document.getElementById('tripDesc').value='';
   selectPayment('cash');
   document.getElementById('tripModal').classList.add('active');
 }
@@ -699,12 +615,10 @@ function selectPayment(method){
 function saveTrip(){
   const fare = parseFloat(document.getElementById('tripFare').value);
   if(!fare || fare<=0){ showToast('Enter a valid fare'); return; }
-  const desc = document.getElementById('tripDesc').value.trim();
   data.records.push({
     type:'trip',
     amount: fare,
     payment: selectedPayment,
-    description: desc,
     date: todayKey(),
     ts: Date.now()
   });
@@ -766,71 +680,8 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 function deleteRecord(ts){
   data.records = data.records.filter(r=>r.ts!==ts);
   saveData();
-  renderHome(); renderHistory(); renderReports(); renderCashOut();
+  renderHome(); renderHistory(); renderReports();
 }
-
-/* ---------- CASH IN (cash out) ---------- */
-function computeBalance(){
-  let bal=0;
-  data.records.forEach(r=>{
-    if(r.type==='trip') bal+=r.amount;
-    else if(r.type==='expense' || r.type==='cashin') bal-=r.amount;
-  });
-  return Math.round(bal*100)/100;
-}
-function money(n){ return (n<0?'-':'')+fmt(Math.abs(n)); }
-let cashinArmed = false;
-function openCashInModal(){
-  const profit = computeBalance();
-  cashinArmed = false;
-  document.getElementById('cashinAvail').textContent = 'Available to cash out: ' + money(profit);
-  document.getElementById('cashinConfirmBtn').textContent = 'Confirm Cash Out';
-  document.getElementById('cashinAmount').value = profit>0 ? profit.toFixed(2) : '';
-  document.getElementById('cashinNote').value = '';
-  document.getElementById('cashinModal').classList.add('active');
-}
-function closeCashInModal(){
-  document.getElementById('cashinModal').classList.remove('active');
-}
-function saveCashIn(){
-  const amt = parseFloat(document.getElementById('cashinAmount').value);
-  const note = document.getElementById('cashinNote').value;
-  if(!amt || amt<=0){ showToast('Enter a valid amount'); return; }
-  const available = computeBalance();
-  if(amt > available + 0.005 && !cashinArmed){
-    cashinArmed = true;
-    document.getElementById('cashinConfirmBtn').textContent = '⚠️ More than available — tap again';
-    showToast('That is more than ' + money(available) + ' available');
-    return;
-  }
-  cashinArmed = false;
-  data.records.push({
-    type:'cashin',
-    amount: amt,
-    note: note,
-    date: todayKey(),
-    ts: Date.now()
-  });
-  saveData();
-  closeCashInModal();
-  showToast('Cash out recorded');
-  renderHome(); renderCashOut();
-}
-function renderCashOut(){
-  const bal=computeBalance();
-  document.getElementById('cashBalance').textContent=money(bal);
-  const list=data.records.filter(r=>r.type==='cashin').sort((x,y)=>y.ts-x.ts);
-  document.getElementById('cashoutList').innerHTML = list.length ? list.map(r=>{
-    const d=new Date(r.ts);
-    const ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    return `<div class="list-item"><div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${ds}</div></div>
-      <div style="display:flex;align-items:center;gap:8px;"><div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
-      <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
-  }).join('') : '<div class="empty">No cash-outs yet</div>';
-}
-function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerBg').classList.add('open'); }
-function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerBg').classList.remove('open'); }
-function goTo(name){ closeDrawer(); switchScreen(name); }
 
 /* ---------- HOME RENDER ---------- */
 function renderHome(){
@@ -854,17 +705,9 @@ function renderHome(){
       const time = new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       if(r.type==='trip'){
         return `<div class="list-item">
-          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[time, r.description].filter(Boolean).join(' · ')}</div></div>
+          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${time}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="li-amt income">+${fmt(r.amount)}</div>
-            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
-          </div>
-        </div>`;
-      } else if(r.type==='cashin'){
-        return `<div class="list-item">
-          <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${time}</div></div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
             <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
           </div>
         </div>`;
@@ -946,11 +789,9 @@ function renderReports(){
   const trips = inRange.filter(r=>r.type==='trip');
   const expenses = inRange.filter(r=>r.type==='expense');
   const sessions = inRange.filter(r=>r.type==='session');
-  const cashouts = inRange.filter(r=>r.type==='cashin');
 
   const income = trips.reduce((s,r)=>s+r.amount,0);
   const expenseTotal = expenses.reduce((s,r)=>s+r.amount,0);
-  const cashOutTotal = cashouts.reduce((s,r)=>s+r.amount,0);
   const profit = income - expenseTotal;
   const cash = trips.filter(r=>r.payment==='cash').reduce((s,r)=>s+r.amount,0);
   const electronic = trips.filter(r=>r.payment==='electronic').reduce((s,r)=>s+r.amount,0);
@@ -965,9 +806,8 @@ function renderReports(){
   document.getElementById('mTrips').textContent = trips.length;
   document.getElementById('mAvgFare').textContent = trips.length? fmt(income/trips.length) : '$0';
   document.getElementById('mHours').textContent = hours.toFixed(1)+'h';
-  document.getElementById('mPerHour').textContent = hours>0 ? fmt((income-expenseTotal)/hours) : '$0';
+  document.getElementById('mPerHour').textContent = hours>0 ? fmt(profit/hours) : '$0';
   document.getElementById('mFuelPct').textContent = income>0 ? ((fuelTotal/income)*100).toFixed(1)+'%' : '0%';
-  document.getElementById('mCashOut').textContent = fmt(cashOutTotal);
   document.getElementById('mCash').textContent = fmt(cash);
   document.getElementById('mElectronic').textContent = fmt(electronic);
 
@@ -1044,77 +884,6 @@ function renderFuelEfficiency(periodStart, periodEnd){
   `;
 }
 
-/* ---------- BACKUP & RESTORE ---------- */
-function renderBackupBox(){
-  document.getElementById('exportBox').value = JSON.stringify(data);
-  document.getElementById('importBox').value = '';
-}
-function copyBackup(){
-  const box = document.getElementById('exportBox');
-  box.select();
-  box.setSelectionRange(0, 999999);
-  try{
-    navigator.clipboard.writeText(box.value).then(()=>{
-      showToast('Copied to clipboard');
-    }).catch(()=>{
-      document.execCommand('copy');
-      showToast('Copied to clipboard');
-    });
-  }catch(e){
-    document.execCommand('copy');
-    showToast('Copied to clipboard');
-  }
-}
-function downloadBackup(){
-  try{
-    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0,10);
-    a.href = url;
-    a.download = 'driver-tracker-backup-'+stamp+'.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Download started');
-  }catch(e){
-    showToast('Download not supported here — use Copy instead');
-  }
-}
-let restoreArmed = false;
-function restoreBackup(){
-  const text = document.getElementById('importBox').value.trim();
-  if(!text){ showToast('Paste a backup first'); return; }
-  let parsed;
-  try{
-    parsed = JSON.parse(text);
-  }catch(e){
-    showToast('That doesn\'t look like a valid backup');
-    return;
-  }
-  if(!parsed || !Array.isArray(parsed.records)){
-    showToast('That doesn\'t look like a valid backup');
-    return;
-  }
-  // In-app confirmation (browser confirm() popups are blocked in Android WebView)
-  if(!restoreArmed){
-    restoreArmed = true;
-    const btn = document.getElementById('restoreBtn');
-    btn.textContent = '⚠️ Tap again to REPLACE all data';
-    setTimeout(()=>{ restoreArmed = false; btn.textContent = '⬆️ Restore from Backup'; }, 6000);
-    showToast('Tap again within 6s to confirm');
-    return;
-  }
-  restoreArmed = false;
-  document.getElementById('restoreBtn').textContent = '⬆️ Restore from Backup';
-  data = parsed;
-  saveData();
-  showToast('Restored '+data.records.length+' entries');
-  renderHome();
-  renderBackupBox();
-}
-
 /* ---------- HISTORY ---------- */
 let histFilter = 'all';
 function setHistFilter(f){
@@ -1137,17 +906,9 @@ function renderHistory(){
     const dateStr = dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     if(r.type==='trip'){
       return `<div class="list-item">
-        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[dateStr, r.description].filter(Boolean).join(' · ')}</div></div>
+        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${dateStr}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="li-amt income">+${fmt(r.amount)}</div>
-          <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
-        </div>
-      </div>`;
-    } else if(r.type==='cashin'){
-      return `<div class="list-item">
-        <div><div class="li-main">💰 Cash Out${r.note?' · '+r.note:''}</div><div class="li-sub">${dateStr}</div></div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="li-amt" style="color:var(--accent2);">-${fmt(r.amount)}</div>
           <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
         </div>
       </div>`;
