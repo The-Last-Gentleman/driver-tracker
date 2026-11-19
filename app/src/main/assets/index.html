@@ -672,7 +672,7 @@ function switchScreen(name){
   if(name==='reports') renderReports();
   if(name==='history') renderHistory();
   if(name==='backup') renderBackupBox();
-  if(name==='cashout') renderCashOut();
+  if(name==='cashout'){ poolExpanded=false; renderCashOut(); }
 }
 
 /* ---------- SESSION (shift) ---------- */
@@ -868,7 +868,8 @@ function computePool(){
   });
   return Math.round(p*100)/100;
 }
-let poolMode='used', poolArmed=false;
+let poolMode='used', poolArmed=false, poolExpanded=false;
+function togglePool(){ poolExpanded=!poolExpanded; renderCashOut(); }
 function openPoolModal(mode){
   poolMode=mode; poolArmed=false;
   const pay = mode==='pay';
@@ -911,14 +912,14 @@ function renderCashOut(){
   document.getElementById('cashBalance').textContent=money(bal);
   document.getElementById('poolBalance').textContent=money(computePool());
   const pl=data.records.filter(r=>(r.type==='cashin'&&r.mine)||r.type==='payself'||r.type==='used').sort((x,y)=>y.ts-x.ts);
-  document.getElementById('poolList').innerHTML = pl.length ? pl.map(r=>{
+  document.getElementById('poolList').innerHTML = pl.length ? ((poolExpanded?pl:pl.slice(0,3)).map(r=>{
     const d=new Date(r.ts);
     const ds=d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const note=r.note?' · '+r.note:'';
     if(r.type==='used') return `<div class="list-item"><div><div class="li-main">Used${note}</div><div class="li-sub">${ds}</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="li-amt expense">-${fmt(r.amount)}</div><span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
     if(r.type==='payself') return `<div class="list-item"><div><div class="li-main">👤 Paid myself${note}</div><div class="li-sub">${ds}</div></div><div style="display:flex;align-items:center;gap:8px;"><div class="li-amt income">+${fmt(r.amount)}</div><span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span></div></div>`;
     return `<div class="list-item"><div><div class="li-main">Kept from cash-out${note}</div><div class="li-sub">${ds}</div></div><div class="li-amt income">+${fmt(r.mine)}</div></div>`;
-  }).join('') : '';
+  }).join('') + (pl.length>3 ? '<button class="btn btn-secondary" style="width:100%;margin-top:8px;padding:10px;font-size:13px;" onclick="togglePool()">'+(poolExpanded?'Show less':'View more ('+(pl.length-3)+')')+'</button>' : '')) : '';
   const list=data.records.filter(r=>r.type==='cashin').sort((x,y)=>y.ts-x.ts);
   document.getElementById('cashoutList').innerHTML = list.length ? list.map(r=>{
     const d=new Date(r.ts);
