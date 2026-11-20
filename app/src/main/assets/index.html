@@ -326,6 +326,7 @@
   .drawer-item{display:block;width:100%;text-align:left;background:none;color:var(--text);font-size:15px;padding:16px 18px;border-top:1px solid var(--border);}
   #menuBtn{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;z-index:40;width:44px;height:44px;border-radius:12px;background:var(--card);color:var(--text);border:1px solid var(--border);font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.4);}
   header{padding-left:64px;padding-right:64px;}
+  .modal{max-height:90vh;overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -452,12 +453,32 @@
     </div>
   </div>
 
+  <!-- CREDIT & CHANGE SCREEN -->
+  <div class="screen" id="screen-credit">
+    <h2>Credit &amp; Change</h2>
+    <div class="card">
+      <div class="today-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="stat"><div class="label">Owed to you</div><div class="value profit" id="creditOwedTotal">$0</div></div>
+        <div class="stat"><div class="label">Change you owe</div><div class="value expense" id="changeOwedTotal">$0</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">🧾 Clients who owe you</h2>
+      <div id="creditList"><div class="empty">Nobody owes you</div></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;">💵 Change you owe</h2>
+      <div id="changeList"><div class="empty">No change owed</div></div>
+    </div>
+  </div>
+
   <!-- CASH OUT SCREEN -->
   <div class="screen" id="screen-cashout">
     <h2>Cash Out</h2>
     <div class="card" style="text-align:center;border-color:var(--accent2);">
       <div style="font-size:13px;color:var(--muted);">Available to cash out</div>
       <div id="cashBalance" style="font-size:40px;font-weight:800;color:var(--accent2);margin:6px 0 14px;">$0</div>
+      <div id="cashChangeNote" style="font-size:12px;color:var(--muted);margin:-8px 0 12px;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <button class="btn" style="background:var(--accent2);" onclick="openCashInModal()">💰 Cash Out</button>
         <button class="btn btn-secondary" onclick="openPoolModal('pay')">👤 Pay Myself</button>
@@ -511,6 +532,7 @@
 <div class="drawer-bg" id="drawerBg" onclick="closeDrawer()"></div>
 <div class="drawer" id="drawer">
   <div style="font-size:18px;font-weight:700;padding:20px 18px 14px;">🚗 Driver Tracker</div>
+  <button class="drawer-item" onclick="goTo('credit')">🧾 Credit &amp; Change</button>
   <button class="drawer-item" onclick="goTo('cashout')">💰 Cash Out</button>
   <button class="drawer-item" onclick="goTo('backup')">💾 Backup &amp; Restore</button>
 </div>
@@ -533,18 +555,32 @@
     <h3>Add Trip</h3>
     <div class="field">
       <label>Fare Amount</label>
-      <input type="number" inputmode="decimal" id="tripFare" placeholder="0.00">
+      <input type="number" inputmode="decimal" id="tripFare" placeholder="0.00" oninput="updateChangeHint()">
     </div>
     <div class="field">
       <label>Payment Method</label>
       <div class="toggle-row">
         <div class="toggle-opt selected" id="payCash" onclick="selectPayment('cash')">💵 Cash</div>
         <div class="toggle-opt" id="payElectronic" onclick="selectPayment('electronic')">💳 Electronic</div>
+        <div class="toggle-opt" id="payCredit" onclick="selectPayment('credit')">🧾 Credit</div>
       </div>
+    </div>
+    <div class="field" id="gaveField">
+      <label>Client gave (optional)</label>
+      <input type="number" inputmode="decimal" id="tripGave" placeholder="e.g. 5" oninput="updateChangeHint()">
+      <div id="changeHint" style="font-size:12px;color:var(--accent2);margin-top:6px;min-height:14px;"></div>
+    </div>
+    <div class="field" id="clientField" style="display:none;">
+      <label>Client name</label>
+      <input type="text" id="tripClient" placeholder="Who owes you?">
     </div>
     <div class="field">
       <label>Trip Description (optional)</label>
       <input type="text" id="tripDesc" placeholder="e.g. Airport run, CBD to Avondale">
+    </div>
+    <div class="field">
+      <label>Odometer reading (optional)</label>
+      <input type="number" inputmode="decimal" id="tripOdo" placeholder="e.g. 84700">
     </div>
     <button class="save-btn" onclick="saveTrip()">Save Trip</button>
   </div>
@@ -630,6 +666,21 @@
   </div>
 </div>
 
+<!-- CREDIT PAID MODAL -->
+<div class="modal-bg" id="creditPayModal">
+  <div class="modal">
+    <h3 id="creditPayTitle"></h3>
+    <div class="field">
+      <label>How did they pay?</label>
+      <div class="toggle-row">
+        <div class="toggle-opt selected" id="cpCash" onclick="selectCreditMethod('cash')">💵 Cash</div>
+        <div class="toggle-opt" id="cpElectronic" onclick="selectCreditMethod('electronic')">💳 Electronic</div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="confirmCreditPay()">Confirm paid</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -673,6 +724,7 @@ function switchScreen(name){
   if(name==='history') renderHistory();
   if(name==='backup') renderBackupBox();
   if(name==='cashout'){ poolExpanded=false; renderCashOut(); }
+  if(name==='credit') renderCredit();
 }
 
 /* ---------- SESSION (shift) ---------- */
@@ -716,8 +768,7 @@ function renderSession(){
 /* ---------- TRIP MODAL ---------- */
 let selectedPayment = 'cash';
 function openTripModal(){
-  document.getElementById('tripFare').value='';
-  document.getElementById('tripDesc').value='';
+  ['tripFare','tripDesc','tripGave','tripClient','tripOdo'].forEach(id=>document.getElementById(id).value='');
   selectPayment('cash');
   document.getElementById('tripModal').classList.add('active');
 }
@@ -728,23 +779,107 @@ function selectPayment(method){
   selectedPayment = method;
   document.getElementById('payCash').classList.toggle('selected', method==='cash');
   document.getElementById('payElectronic').classList.toggle('selected', method==='electronic');
+  document.getElementById('payCredit').classList.toggle('selected', method==='credit');
+  document.getElementById('gaveField').style.display = method==='cash' ? 'block' : 'none';
+  document.getElementById('clientField').style.display = method==='credit' ? 'block' : 'none';
+  updateChangeHint();
+}
+function updateChangeHint(){
+  const fare=parseFloat(document.getElementById('tripFare').value)||0;
+  const gave=parseFloat(document.getElementById('tripGave').value)||0;
+  document.getElementById('changeHint').textContent = (selectedPayment==='cash' && fare>0 && gave>fare) ? ('Change due: '+money(gave-fare)) : '';
 }
 function saveTrip(){
   const fare = parseFloat(document.getElementById('tripFare').value);
   if(!fare || fare<=0){ showToast('Enter a valid fare'); return; }
-  const desc = document.getElementById('tripDesc').value.trim();
-  data.records.push({
-    type:'trip',
-    amount: fare,
-    payment: selectedPayment,
-    description: desc,
-    date: todayKey(),
-    ts: Date.now()
-  });
+  const rec = { description: document.getElementById('tripDesc').value.trim(), date: todayKey(), ts: Date.now() };
+  if(selectedPayment==='credit'){
+    const client = document.getElementById('tripClient').value.trim();
+    if(!client){ showToast('Enter the client name'); return; }
+    Object.assign(rec,{ type:'credit', amount:fare, client:client, paid:false });
+  } else {
+    Object.assign(rec,{ type:'trip', amount:fare, payment:selectedPayment });
+    if(selectedPayment==='cash'){
+      const raw = document.getElementById('tripGave').value;
+      const gave = parseFloat(raw);
+      if(raw!=='' && !isNaN(gave)){
+        if(gave < fare){ showToast('Client gave less than the fare'); return; }
+        rec.gave = gave;
+        if(gave > fare + 0.005){ rec.changeDue = Math.round((gave-fare)*100)/100; rec.changeGiven = false; }
+      }
+    }
+  }
+  const odo = parseFloat(document.getElementById('tripOdo').value);
+  if(!isNaN(odo)) rec.odometer = odo;
+  data.records.push(rec);
   saveData();
   closeTripModal();
-  showToast('Trip saved');
+  showToast(selectedPayment==='credit' ? 'Credit sale saved' : 'Trip saved');
   renderHome();
+}
+
+/* ---------- CREDIT & CHANGE ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fdt(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+function tripLabel(r){ return 'Trip ('+(r.payment==='cash'?'💵 Cash':'💳 Electronic')+(r.client?' · '+esc(r.client):'')+')'; }
+function tripSub(r, when){
+  const bits=[when];
+  if(r.description) bits.push(esc(r.description));
+  if(r.gave) bits.push('gave '+fmt(r.gave)+(r.changeDue ? (' · change '+fmt(r.changeDue)+(r.changeGiven?' given':' owed')) : ''));
+  if(r.odometer!=null) bits.push('Odo '+r.odometer+'km');
+  return bits.join(' · ');
+}
+function changeOwedList(){ return data.records.filter(r=>r.type==='trip' && r.changeDue>0 && !r.changeGiven).sort((x,y)=>y.ts-x.ts); }
+function changeOwedTotal(){ return Math.round(changeOwedList().reduce((s,r)=>s+r.changeDue,0)*100)/100; }
+let creditPayTs=null, creditPayMethod='cash';
+function openCreditPay(ts){
+  const c=data.records.find(r=>r.type==='credit' && r.ts===ts); if(!c) return;
+  creditPayTs=ts;
+  document.getElementById('creditPayTitle').textContent = esc(c.client)+' paid '+fmt(c.amount);
+  selectCreditMethod('cash');
+  document.getElementById('creditPayModal').classList.add('active');
+}
+function selectCreditMethod(m){
+  creditPayMethod=m;
+  document.getElementById('cpCash').classList.toggle('selected', m==='cash');
+  document.getElementById('cpElectronic').classList.toggle('selected', m==='electronic');
+}
+function confirmCreditPay(){
+  const c=data.records.find(r=>r.type==='credit' && r.ts===creditPayTs);
+  if(!c || c.paid) return;
+  const now=Date.now();
+  c.paid=true; c.paidTs=now;
+  const t={type:'trip', amount:c.amount, payment:creditPayMethod, description:c.description||'', client:c.client, creditTs:c.ts, date:todayKey(), ts:now};
+  if(c.odometer!=null) t.odometer=c.odometer;
+  data.records.push(t);
+  saveData();
+  document.getElementById('creditPayModal').classList.remove('active');
+  showToast('Marked paid · counted as income today');
+  renderHome(); renderCredit();
+}
+function giveChange(ts){
+  const t=data.records.find(r=>r.type==='trip' && r.ts===ts); if(!t) return;
+  t.changeGiven=true; t.changeGivenTs=Date.now();
+  saveData(); showToast('Change marked as given'); renderCredit(); renderHome();
+}
+function renderCredit(){
+  const unpaid=data.records.filter(r=>r.type==='credit' && !r.paid).sort((x,y)=>y.ts-x.ts);
+  const owed=Math.round(unpaid.reduce((s,r)=>s+r.amount,0)*100)/100;
+  const chg=changeOwedList();
+  document.getElementById('creditOwedTotal').textContent=money(owed);
+  document.getElementById('changeOwedTotal').textContent=money(changeOwedTotal());
+  document.getElementById('creditList').innerHTML = unpaid.length ? unpaid.map(c=>`<div class="list-item">
+      <div><div class="li-main">${esc(c.client)}</div><div class="li-sub">${fdt(c.ts)}${c.description?' · '+esc(c.description):''}</div></div>
+      <div style="display:flex;align-items:center;gap:8px;"><div class="li-amt">${fmt(c.amount)}</div>
+      <button class="session-btn start" onclick="openCreditPay(${c.ts})">Mark paid</button>
+      <span class="delete-x" onclick="deleteRecord(${c.ts})">✕</span></div></div>`).join('') : '<div class="empty">Nobody owes you</div>';
+  document.getElementById('changeList').innerHTML = chg.length ? chg.map(t=>`<div class="list-item">
+      <div><div class="li-main">Change due ${fmt(t.changeDue)}</div><div class="li-sub">${fdt(t.ts)} · fare ${fmt(t.amount)} · gave ${fmt(t.gave)}</div></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+      <button class="session-btn start" onclick="giveChange(${t.ts})">Change given</button></div></div>`).join('') : '<div class="empty">No change owed</div>';
 }
 
 /* ---------- EXPENSE MODAL ---------- */
@@ -797,9 +932,16 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 
 /* ---------- DELETE RECORD ---------- */
 function deleteRecord(ts){
+  const rec = data.records.find(r=>r.ts===ts);
+  if(rec && rec.type==='credit'){
+    data.records = data.records.filter(r=>!(r.type==='trip' && r.creditTs===rec.ts));   // linked paid income goes too
+  } else if(rec && rec.type==='trip' && rec.creditTs){
+    const c = data.records.find(r=>r.type==='credit' && r.ts===rec.creditTs);           // payment removed -> owed again
+    if(c){ c.paid=false; delete c.paidTs; }
+  }
   data.records = data.records.filter(r=>r.ts!==ts);
   saveData();
-  renderHome(); renderHistory(); renderReports(); renderCashOut();
+  renderHome(); renderHistory(); renderReports(); renderCashOut(); renderCredit();
 }
 
 /* ---------- CASH IN (cash out) ---------- */
@@ -910,6 +1052,8 @@ function savePool(){
 function renderCashOut(){
   const bal=computeBalance();
   document.getElementById('cashBalance').textContent=money(bal);
+  const co=changeOwedTotal();
+  document.getElementById('cashChangeNote').textContent = co>0 ? ('Not included: '+money(co)+' change owed to clients') : '';
   document.getElementById('poolBalance').textContent=money(computePool());
   const pl=data.records.filter(r=>(r.type==='cashin'&&r.mine)||r.type==='payself'||r.type==='used').sort((x,y)=>y.ts-x.ts);
   document.getElementById('poolList').innerHTML = pl.length ? ((poolExpanded?pl:pl.slice(0,3)).map(r=>{
@@ -936,7 +1080,7 @@ function goTo(name){ closeDrawer(); switchScreen(name); }
 /* ---------- HOME RENDER ---------- */
 function renderHome(){
   const t = todayKey();
-  const todays = data.records.filter(r=>r.date===t && r.type!=='session' && r.type!=='used');
+  const todays = data.records.filter(r=>r.date===t && r.type!=='session' && r.type!=='used' && !(r.type==='credit' && r.paid));
   let income=0, expense=0;
   todays.forEach(r=>{
     if(r.type==='trip') income+=r.amount;
@@ -955,9 +1099,17 @@ function renderHome(){
       const time = new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       if(r.type==='trip'){
         return `<div class="list-item">
-          <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[time, r.description].filter(Boolean).join(' · ')}</div></div>
+          <div><div class="li-main">${tripLabel(r)}</div><div class="li-sub">${tripSub(r,time)}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="li-amt income">+${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else if(r.type==='credit'){
+        return `<div class="list-item">
+          <div><div class="li-main">Credit · ${esc(r.client)}</div><div class="li-sub">${time}${r.description?' · '+esc(r.description):''}${r.odometer!=null?' · Odo '+r.odometer+'km':''} · unpaid</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt" style="color:var(--muted);">${fmt(r.amount)}</div>
             <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
           </div>
         </div>`;
@@ -1232,8 +1384,9 @@ function setHistFilter(f){
   renderHistory();
 }
 function renderHistory(){
-  let records = data.records.filter(r=>r.type!=='session' && r.type!=='used');
+  let records = data.records.filter(r=>r.type!=='session' && r.type!=='used' && !(r.type==='credit' && r.paid));
   if(histFilter==='cashin') records = records.filter(r=>r.type==='cashin'||r.type==='payself');
+  else if(histFilter==='trip') records = records.filter(r=>r.type==='trip'||r.type==='credit');
   else if(histFilter!=='all') records = records.filter(r=>r.type===histFilter);
   records = records.slice().sort((a,b)=>b.ts-a.ts);
 
@@ -1247,13 +1400,21 @@ function renderHistory(){
     const dateStr = dt.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' · ' + dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     if(r.type==='trip'){
       return `<div class="list-item">
-        <div><div class="li-main">Trip (${r.payment==='cash'?'💵 Cash':'💳 Electronic'})</div><div class="li-sub">${[dateStr, r.description].filter(Boolean).join(' · ')}</div></div>
+        <div><div class="li-main">${tripLabel(r)}</div><div class="li-sub">${tripSub(r,dateStr)}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="li-amt income">+${fmt(r.amount)}</div>
           <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
         </div>
       </div>`;
-    } else if(r.type==='payself'){
+    } else if(r.type==='credit'){
+        return `<div class="list-item">
+          <div><div class="li-main">Credit · ${esc(r.client)}</div><div class="li-sub">${dateStr}${r.description?' · '+esc(r.description):''}${r.odometer!=null?' · Odo '+r.odometer+'km':''} · unpaid</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="li-amt" style="color:var(--muted);">${fmt(r.amount)}</div>
+            <span class="delete-x" onclick="deleteRecord(${r.ts})">✕</span>
+          </div>
+        </div>`;
+      } else if(r.type==='payself'){
       return `<div class="list-item">
         <div><div class="li-main">👤 Paid Myself${r.note?' · '+r.note:''}</div><div class="li-sub">${dateStr}</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
